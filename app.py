@@ -57,7 +57,7 @@ def generate_artwork_info(artist, title, image_url):
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Describe this painting, focusing on its most notable visual aspects.Be brief and concise with just a couple of sentences max."},
+                        {"type": "text", "text": "Describe this painting, focusing on its most notable visual aspects.Be short and concise, 2 sentences max."},
                         {"type": "image_url", "image_url": image_url},
                     ]
                 }
@@ -69,7 +69,7 @@ def generate_artwork_info(artist, title, image_url):
 
         # Now, use the visual details to inform the chat model's emotional interpretation.
         prompts = [
-            f"The painting '{title}' by {artist} features {visual_text}. What historical narratives or emotions might these details suggest? Be concise, touching, clear.",
+            f"The painting '{title}' by {artist} features {visual_text}. What historical narratives or emotions might these details suggest? Be short, concise, touching, clear. 2 sentences max",
             # Additional prompts can be crafted similarly, using visual_text.
         ]
 
