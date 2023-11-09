@@ -8,6 +8,7 @@ import os
 import json
 from flask import make_response
 from flask import request
+import ijson
 
 
 
@@ -19,60 +20,71 @@ API_ENDPOINT = "https://api.openai.com/v1/chat/completions"
 
 def scrape_painting():
     api_key = os.environ.get("HARVARD_API_KEY")
-    url = f"https://api.harvardartmuseums.org/object?apikey={api_key}&size=100&sort=random&classification=Paintings&hasimage=1&sortorder=asc"
-    response = requests.get(url)
-    print(f"URL: {url}")
-    print(f"Response status code: {response.status_code}")
-    print(f"Response text: {response.text}")
-    data = response.json()
+    fields = 'primaryimageurl,title,people,date'
+    url = f"https://api.harvardartmuseums.org/object?apikey={api_key}&size=100&sort=random&classification=Paintings&hasimage=1&sortorder=asc&fields={fields}"
 
-    if "records" not in data or not data["records"]:
+    try:
+        response = requests.get(url, stream=True)
+        print(f"URL: {url}")
+        print(f"Response status code: {response.status_code}")
+
+        # Ensure the status code is 200 OK
+        response.raise_for_status()
+
+        # Parse the JSON stream using ijson
+        items = ijson.items(response.raw, 'records.item')
+        records = list(items)
+
+        if not records:
+            return {
+                "image_url": None,
+                "title": None,
+                "artist": None,
+                "date": None
+            }
+
+        painting = random.choice(records)
+        
+        image_url = painting.get("primaryimageurl")
+        title = painting.get("title")
+        artist = painting["people"][0].get("name") if "people" in painting and painting["people"] else "Unknown artist"
+        date = painting.get("dated")
+
         return {
-            "image_url": None,
-            "title": None,
-            "artist": None,
-            "date": None
+            "image_url": image_url,
+            "title": title,
+            "artist": artist,
+            "date": date
         }
-
-    painting = random.choice(data["records"])
-
-    image_url = painting["primaryimageurl"]
-    title = painting["title"]
-    artist = painting["people"][0]["name"] if "people" in painting and painting["people"] else "Unknown artist"
-    date = painting["dated"]
-
-    return {
-        "image_url": image_url,
-        "title": title,
-        "artist": artist,
-        "date": date
-    }
-
+    
+    except requests.exceptions.RequestException as e:
+        # Log the exception and return a message
+        print(f"Request to Harvard API failed: {e}")
+        return {
+            "error": "An error occurred while retrieving the painting. Please try again later."
+        }
 def generate_artwork_info(artist, title, image_url):
     openai.api_key = os.getenv("OPENAI_API_KEY")
-
-    # First, get the visual interpretation using the image to ensure factual accuracy.
+    
     try:
         visual_response = openai.ChatCompletion.create(
-            model="gpt-4-vision-preview",  # Use the vision model here
+            model="gpt-4-vision-preview",
             messages=[
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Describe this painting, focusing on its most notable visual aspects.be short and concise, max 2 sentences"},
+                        {"type": "text", "text": "Describe this painting, focusing on its most notable visual aspects. Be short and concise, max 2 sentences"},
                         {"type": "image_url", "image_url": image_url},
                     ]
                 }
             ],
-            max_tokens=150  # Increased tokens to get more detail
+            max_tokens=150
         )
 
         visual_text = visual_response.choices[0].message["content"]
 
-        # Now, use the visual details to inform the chat model's emotional interpretation.
         prompts = [
-            f"The painting '{title}' by {artist} features {visual_text}. What historical narratives or emotions might these details suggest? Be short, touching and concise (max 2 sentences)",
-            # Additional prompts can be crafted similarly, using visual_text.
+            f"The painting '{title}' by {artist} features {visual_text}. What historical narratives or emotions might these details suggest? Be short, touching, and concise (max 2 sentences)",
         ]
 
         prompt = random.choice(prompts)
@@ -94,26 +106,27 @@ def generate_artwork_info(artist, title, image_url):
 
         text = text_response.choices[0].message["content"]
 
-        # Combine both responses with titles for clarity.
         combined_text = f"VISUAL_MARKER{visual_text}HISTORICAL_MARKER{text}"
 
-
         return combined_text.strip()
+
     except openai.error.OpenAIError as e:
-        print(f"An error occurred: {e}")
+        print(f"OpenAI API error: {e}")
         return "An error occurred while processing the image. Please try again later."
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         return "An unexpected error occurred. Please try again later."
 
-
 @app.route('/')
 def painting_of_the_day():
     painting = scrape_painting()
-    # Make sure to pass all three parameters artist, title, and image_url
-    painting_info = generate_artwork_info(painting["artist"], painting["title"], painting["image_url"])
+    if painting is None:
+        painting_info = "Information could not be generated due to an error."
+    else:
+        painting_info = generate_artwork_info(painting["artist"], painting["title"], painting["image_url"])
+    
     painting["info"] = painting_info if painting_info else "Information could not be generated."
-    painting_json = json.dumps(painting)
+    painting_json = json.dumps(painting if painting else {})
     return render_template('index.html', painting=painting, painting_json=painting_json)
 
 @app.route('/refresh')
