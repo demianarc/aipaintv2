@@ -6,6 +6,8 @@ import openai
 import random
 import os
 import json
+from flask import make_response
+from flask import request
 
 
 
@@ -57,7 +59,7 @@ def generate_artwork_info(artist, title, image_url):
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Describe this painting, focusing on its most notable visual aspects.Be short and concise, 2 sentences max."},
+                        {"type": "text", "text": "Describe this painting, focusing on its most notable visual aspects.be short and concise, max 2 sentences"},
                         {"type": "image_url", "image_url": image_url},
                     ]
                 }
@@ -69,7 +71,7 @@ def generate_artwork_info(artist, title, image_url):
 
         # Now, use the visual details to inform the chat model's emotional interpretation.
         prompts = [
-            f"The painting '{title}' by {artist} features {visual_text}. What historical narratives or emotions might these details suggest? Be short, concise, touching, clear. 2 sentences max",
+            f"The painting '{title}' by {artist} features {visual_text}. What historical narratives or emotions might these details suggest? Be short, touching and concise (max 2 sentences)",
             # Additional prompts can be crafted similarly, using visual_text.
         ]
 
@@ -120,6 +122,23 @@ def refresh():
     painting_info = generate_artwork_info(painting["artist"], painting["title"], painting["image_url"])
     painting["info"] = painting_info
     return jsonify(painting)
+
+@app.after_request
+def add_caching_headers(response):
+    # Preload the stylesheet
+    if request.path == '/':
+        response.headers.add('Link', '</static/css/style.css>; rel=preload; as=style')
+
+    # Cache control for static resources
+    if request.path.startswith('/static'):
+        response.headers['Cache-Control'] = 'public, max-age=31536000'
+    elif request.endpoint != 'refresh':
+        # Cache dynamic content for a shorter time
+        response.headers['Cache-Control'] = 'public, max-age=36000'
+    else:
+        # No caching for the API responses that fetch new paintings
+        response.headers['Cache-Control'] = 'no-store'
+    return response
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
