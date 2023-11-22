@@ -9,10 +9,12 @@ import json
 from flask import make_response
 from flask import request
 import ijson
+import logging
 
 
 
 app = Flask(__name__)
+logging.basicConfig(level=logging.INFO)
 
 # Load OpenAI API key from environment variables
 openai.api_key = os.environ.get("OPENAI_API_KEY")
@@ -25,26 +27,17 @@ def scrape_painting():
 
     try:
         response = requests.get(url, stream=True)
-        print(f"URL: {url}")
-        print(f"Response status code: {response.status_code}")
+        logging.info(f"URL: {url}")
+        logging.info(f"Response status code: {response.status_code}")
 
-        # Ensure the status code is 200 OK
         response.raise_for_status()
-
-        # Parse the JSON stream using ijson
         items = ijson.items(response.raw, 'records.item')
         records = list(items)
 
         if not records:
-            return {
-                "image_url": None,
-                "title": None,
-                "artist": None,
-                "date": None
-            }
+            return None
 
         painting = random.choice(records)
-        
         image_url = painting.get("primaryimageurl")
         title = painting.get("title")
         artist = painting["people"][0].get("name") if "people" in painting and painting["people"] else "Unknown artist"
@@ -56,16 +49,12 @@ def scrape_painting():
             "artist": artist,
             "date": date
         }
-    
     except requests.exceptions.RequestException as e:
-        # Log the exception and return a message
-        print(f"Request to Harvard API failed: {e}")
-        return {
-            "error": "An error occurred while retrieving the painting. Please try again later."
-        }
+        logging.error(f"Request to Harvard API failed: {e}")
+        return None
+
+# Updated generate_artwork_info function with full functionality and logging
 def generate_artwork_info(artist, title, image_url):
-    openai.api_key = os.getenv("OPENAI_API_KEY")
-    
     try:
         visual_response = openai.ChatCompletion.create(
             model="gpt-4-vision-preview",
@@ -80,15 +69,11 @@ def generate_artwork_info(artist, title, image_url):
             ],
             max_tokens=150
         )
-
         visual_text = visual_response.choices[0].message["content"]
-
         prompts = [
             f"The painting '{title}' by {artist} features {visual_text}. What historical narratives or emotions might these details suggest? Be short, touching, and concise (max 2 sentences)",
         ]
-
         prompt = random.choice(prompts)
-
         text_response = openai.ChatCompletion.create(
             model="gpt-4-1106-preview",
             messages=[
@@ -103,18 +88,16 @@ def generate_artwork_info(artist, title, image_url):
             ],
             max_tokens=230
         )
-
         text = text_response.choices[0].message["content"]
-
         combined_text = f"VISUAL_MARKER{visual_text}HISTORICAL_MARKER{text}"
 
+        logging.info(f"Generated Artwork Info: {combined_text}")
         return combined_text.strip()
-
     except openai.error.OpenAIError as e:
-        print(f"OpenAI API error: {e}")
+        logging.error(f"OpenAI API error: {e}")
         return "An error occurred while processing the image. Please try again later."
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        logging.error(f"An unexpected error occurred: {e}")
         return "An unexpected error occurred. Please try again later."
 
 @app.route('/')
