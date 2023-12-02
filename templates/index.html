@@ -5,40 +5,105 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Art AI Interpreter</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        <style>
+    body{font-family:Poppins,sans-serif;font-size:12px}h1,h2{font-size:2.2rem;font-weight:600}.section-header{font-size:1.5rem;font-weight:500;margin-top:20px;margin-bottom:10px}p{line-height:1.6}.twitter-share{font-size:1.2rem;color:#1da1f2;cursor:pointer;margin-left:10px}.modal{display:none;position:fixed;z-index:1;padding-top:100px;left:0;top:0;width:100%;height:100%;overflow:auto;background-color:rgba(0,0,0,.9)}.modal-content{margin:auto;display:block;width:80%;max-width:800px;max-height:80%}.modal-content img{display:block;width:100%;height:auto}.close{color:#fff;position:absolute;top:20px;right:20px;font-size:2rem;font-weight:700;cursor:pointer}.loading-cursor *{cursor:progress!important}
+</style>
+    </style>
 </head>
+
+
 <body>
     <div class="container">
         <div class="content">
             <h1>Art AI Interpreter</h1>
-            <div id="loading-indicator">Loading...</div>
-            <img id="painting-image" style="display:none;" class="painting" />
-            <div id="painting-info" class="info" style="display:none;"></div>
+            <img src="{{ painting.image_url }}" loading="lazy" alt="{{ painting.title }}" class="painting" onclick="openModal(this)">
+            <h2>{{ painting.title }}</h2>
+            <p>By {{ painting.artist }} ({{ painting.date }})</p>
+            <div class="info">
+                {% set visual_split = painting.info.split('VISUAL_MARKER') %}
+                {% if visual_split | length > 1 %}
+                    {% set sections = visual_split[1].split('HISTORICAL_MARKER') %}
+                    {% if sections | length > 0 %}
+                        <h3 class="section-header">Visual Interpretation:</h3>
+                        <p>{{ sections[0] | safe }}</p>
+                    {% endif %}
+                    {% if sections | length > 1 %}
+                        <h3 class="section-header">Historical and Emotional Context:</h3>
+                        <p>{{ sections[1] | safe }}</p>
+                    {% endif %}
+                {% endif %}
+            </div>
+            <button class="button" onclick="fetchNewPainting()">New painting</button>            
+            <a href="https://twitter.com/share?url=https://theartapp.vercel.app/&text=Check%20out%20this%20amazing%20AI%20Art%20App!&hashtags=ArtApp,AI" target="_blank" class="twitter-share">
+                <i class="fab fa-twitter"></i>
+            </a>
+        </div>
+        <footer>
+            Flask-based Web App with OpenAI Integration, Developed Using ChatGPT-4 (model gpt-4-1106-preview), GPT4 Vision (gpt-4-vision-preview) and Harvard's API. Dev by Dylan. Reload for new image.
+        </footer>
+    </div>
+    <div id="modal" class="modal">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <div class="modal-content">
+            <img id="modal-image">
         </div>
     </div>
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            fetchInterpretation();
-        });
-
-        function fetchInterpretation() {
-            fetch('/interpretation')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        document.getElementById('loading-indicator').innerText = 'Error loading interpretation.';
-                    } else {
-                        document.getElementById('painting-image').src = data.image_url;
-                        document.getElementById('painting-image').style.display = 'block';
-                        document.getElementById('painting-info').innerHTML = data.info;
-                        document.getElementById('painting-info').style.display = 'block';
-                        document.getElementById('loading-indicator').style.display = 'none';
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching interpretation:', error);
-                    document.getElementById('loading-indicator').innerText = 'Error loading interpretation.';
-                });
+        function openModal(img) {
+            var modal = document.getElementById("modal");
+            var modalImg = document.getElementById("modal-image");
+            modal.style.display = "block";
+            modalImg.src = img.src;
         }
+    
+        function closeModal() {
+            var modal = document.getElementById("modal");
+            modal.style.display = "none";
+        }
+    
+        async function fetchNewPainting() {
+    // Add the loading cursor class to the body
+    document.body.classList.add('loading-cursor');
+
+    try {
+        const response = await fetch('/refresh');
+        const painting = await response.json();
+        document.querySelector('.painting').src = painting.image_url;
+        document.querySelector('h2').textContent = painting.title;
+        document.querySelector('p').textContent = `By ${painting.artist} (${painting.date})`;
+        // Update the .info div with the new interpretation data
+        const visual_split = painting.info.split('VISUAL_MARKER');
+        if (visual_split.length > 1) {
+            const sections = visual_split[1].split('HISTORICAL_MARKER');
+            if (sections.length > 0) {
+                document.querySelector('.section-header').textContent = "Visual Interpretation:";
+                document.querySelector('.info p').innerHTML = sections[0];
+            }
+            if (sections.length > 1) {
+                // Add Historical and Emotional Context if it exists
+                // Assuming there is another .section-header and p to update
+                const contextHeader = document.querySelectorAll('.section-header')[1];
+                const contextParagraph = document.querySelectorAll('.info p')[1];
+                if(contextHeader && contextParagraph) {
+                    contextHeader.textContent = "Historical and Emotional Context:";
+                    contextParagraph.innerHTML = sections[1];
+                }
+            }
+        }
+        // Update the Twitter share link as needed
+        updateTwitterShareUrl(painting.title, painting.info.slice(0, 50) + '...', 'https://theartapp.vercel.app/');
+    } catch (error) {
+        console.error('Failed to fetch new painting:', error);
+    } finally {
+        // Remove the loading cursor class from the body
+        document.body.classList.remove('loading-cursor');
+    }
+}
+
+
     </script>
 </body>
 </html>

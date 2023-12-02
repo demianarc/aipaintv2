@@ -1,61 +1,63 @@
-from flask import Flask, render_template, jsonify, make_response, request
+from flask import Flask, render_template
+from flask import jsonify
 import requests
+from bs4 import BeautifulSoup
 import openai
 import random
 import os
 import json
+from flask import make_response
+from flask import request
 import ijson
 import logging
+
+
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
+# Load OpenAI API key from environment variables
 openai.api_key = os.environ.get("OPENAI_API_KEY")
+API_ENDPOINT = "https://api.openai.com/v1/chat/completions"
 
 def scrape_painting():
     api_key = os.environ.get("HARVARD_API_KEY")
-    # Only request the fields you need
-    fields = 'primaryimageurl,title,people'
+    fields = 'primaryimageurl,title,people,date'
     url = f"https://api.harvardartmuseums.org/object?apikey={api_key}&size=100&sort=random&classification=Paintings&hasimage=1&sortorder=asc&fields={fields}"
 
     try:
-        response = requests.get(url)
+        response = requests.get(url, stream=True)
         logging.info(f"URL: {url}")
         logging.info(f"Response status code: {response.status_code}")
 
         response.raise_for_status()
-        paintings_data = response.json()['records']
+        items = ijson.items(response.raw, 'records.item')
+        records = list(items)
 
-        if not paintings_data:
-            return {"image_url": "", "title": "Untitled", "artist": "Unknown Artist"}
+        if not records:
+            return None
 
-        painting = random.choice(paintings_data)
-        image_url = painting.get("primaryimageurl", "")
-        title = painting.get("title", "Untitled")
-        
-        # Fetch the artist's name; assume there's at least one artist entry
-        artist_name = "Unknown Artist"
-        if 'people' in painting and painting['people']:
-            artist_info = painting['people'][0]
-            # Check if 'name' is not None before assigning
-            if artist_info.get('name') is not None:
-                artist_name = artist_info['name']
+        painting = random.choice(records)
+        image_url = painting.get("primaryimageurl")
+        title = painting.get("title")
+        artist = painting["people"][0].get("name") if "people" in painting and painting["people"] else "Unknown artist"
+        date = painting.get("dated")
 
         return {
             "image_url": image_url,
             "title": title,
-            "artist": artist_name
+            "artist": artist,
+            "date": date
         }
     except requests.exceptions.RequestException as e:
         logging.error(f"Request to Harvard API failed: {e}")
-        return {"image_url": "", "title": "Untitled", "artist": "Unknown Artist"}
-
+        return None
 
 # Updated generate_artwork_info function with full functionality and logging
 def generate_artwork_info(artist, title, image_url):
     try:
         visual_response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4-vision-preview",
             messages=[
                 {
                     "role": "user",
@@ -99,22 +101,16 @@ def generate_artwork_info(artist, title, image_url):
         return "An unexpected error occurred. Please try again later."
 
 @app.route('/')
-def home():
-    # Renders the basic structure of the page without detailed painting interpretation
-    return render_template('index.html')
-
-@app.route('/interpretation')
-def interpretation():
+def painting_of_the_day():
     painting = scrape_painting()
     if painting is None:
-        return jsonify({"error": "Unable to fetch painting"})
-    painting_info = generate_artwork_info(painting["artist"], painting["title"], painting["image_url"])
-    painting["info"] = painting_info
-    return jsonify(painting)
-
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+        painting_info = "Information could not be generated due to an error."
+    else:
+        painting_info = generate_artwork_info(painting["artist"], painting["title"], painting["image_url"])
+    
+    painting["info"] = painting_info if painting_info else "Information could not be generated."
+    painting_json = json.dumps(painting if painting else {})
+    return render_template('index.html', painting=painting, painting_json=painting_json)
 
 @app.route('/refresh')
 def refresh():
