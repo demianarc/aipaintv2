@@ -101,9 +101,14 @@
         // Remove the loading cursor class from the body
         document.body.classList.remove('loading-cursor');
     }
-}
-
-
+} 
+    <script>
+    (function() {
+        var projectId = 'aipaintv2-final';
+        var script = document.createElement('script');
+        script.src = `https://vitals.vercel-analytics.com/v1/vitals.js?projectId=${projectId}`;
+        document.getElementsByTagName('body')[0].appendChild(script);
+    })();
     </script>
 </body>
 </html>
