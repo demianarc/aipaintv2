@@ -8,13 +8,18 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.0/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
     <style>
-        <style>
-    body{font-family:Poppins,sans-serif;font-size:12px}h1,h2{font-size:2.2rem;font-weight:600}.section-header{font-size:1.5rem;font-weight:500;margin-top:20px;margin-bottom:10px}p{line-height:1.6}.twitter-share{font-size:1.2rem;color:#1da1f2;cursor:pointer;margin-left:10px}.modal{display:none;position:fixed;z-index:1;padding-top:100px;left:0;top:0;width:100%;height:100%;overflow:auto;background-color:rgba(0,0,0,.9)}.modal-content{margin:auto;display:block;width:80%;max-width:800px;max-height:80%}.modal-content img{display:block;width:100%;height:auto}.close{color:#fff;position:absolute;top:20px;right:20px;font-size:2rem;font-weight:700;cursor:pointer}.loading-cursor *{cursor:progress!important}
-</style>
+        body { font-family: Poppins, sans-serif; font-size: 12px; }
+        h1, h2 { font-size: 2.2rem; font-weight: 600; }
+        .section-header { font-size: 1.5rem; font-weight: 500; margin-top: 20px; margin-bottom: 10px; }
+        p { line-height: 1.6; }
+        .twitter-share { font-size: 1.2rem; color: #1da1f2; cursor: pointer; margin-left: 10px; }
+        .modal { display: none; position: fixed; z-index: 1; padding-top: 100px; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0, 0, 0, .9); }
+        .modal-content { margin: auto; display: block; width: 80%; max-width: 800px; max-height: 80%; }
+        .modal-content img { display: block; width: 100%; height: auto; }
+        .close { color: #fff; position: absolute; top: 20px; right: 20px; font-size: 2rem; font-weight: 700; cursor: pointer; }
+        .loading-cursor * { cursor: progress!important; }
     </style>
 </head>
-
-
 <body>
     <div class="container">
         <div class="content">
@@ -36,7 +41,7 @@
                     {% endif %}
                 {% endif %}
             </div>
-            <button class="button" onclick="fetchNewPainting()">New painting</button>            
+            <button class="button" onclick="fetchNewPainting()">New painting</button>
             <a href="https://twitter.com/share?url=https://theartapp.vercel.app/&text=Check%20out%20this%20amazing%20AI%20Art%20App!&hashtags=ArtApp,AI" target="_blank" class="twitter-share">
                 <i class="fab fa-twitter"></i>
             </a>
@@ -58,57 +63,46 @@
             modal.style.display = "block";
             modalImg.src = img.src;
         }
-    
+
         function closeModal() {
             var modal = document.getElementById("modal");
             modal.style.display = "none";
         }
-    
-        async function fetchNewPainting() {
-    // Add the loading cursor class to the body
-    document.body.classList.add('loading-cursor');
 
-    try {
-        const response = await fetch('/refresh');
-        const painting = await response.json();
-        document.querySelector('.painting').src = painting.image_url;
-        document.querySelector('h2').textContent = painting.title;
-        document.querySelector('p').textContent = `By ${painting.artist} (${painting.date})`;
-        // Update the .info div with the new interpretation data
-        const visual_split = painting.info.split('VISUAL_MARKER');
-        if (visual_split.length > 1) {
-            const sections = visual_split[1].split('HISTORICAL_MARKER');
-            if (sections.length > 0) {
-                document.querySelector('.section-header').textContent = "Visual Interpretation:";
-                document.querySelector('.info p').innerHTML = sections[0];
-            }
-            if (sections.length > 1) {
-                // Add Historical and Emotional Context if it exists
-                // Assuming there is another .section-header and p to update
-                const contextHeader = document.querySelectorAll('.section-header')[1];
-                const contextParagraph = document.querySelectorAll('.info p')[1];
-                if(contextHeader && contextParagraph) {
-                    contextHeader.textContent = "Historical and Emotional Context:";
-                    contextParagraph.innerHTML = sections[1];
+        async function fetchNewPainting() {
+            document.body.classList.add('loading-cursor');
+            try {
+                const response = await fetch('/refresh');
+                const painting = await response.json();
+                document.querySelector('.painting').src = painting.image_url;
+                document.querySelector('h2').textContent = painting.title;
+                document.querySelector('p').textContent = `By ${painting.artist} (${painting.date})`;
+                const visual_split = painting.info.split('VISUAL_MARKER');
+                if (visual_split.length > 1) {
+                    const sections = visual_split[1].split('HISTORICAL_MARKER');
+                    if (sections.length > 0) {
+                        document.querySelector('.section-header').textContent = "Visual Interpretation:";
+                        document.querySelector('.info p').innerHTML = sections[0];
+                    }
+                    if (sections.length > 1) {
+                        const contextHeader = document.querySelectorAll('.section-header')[1];
+                        const contextParagraph = document.querySelectorAll('.info p')[1];
+                        if (contextHeader && contextParagraph) {
+                            contextHeader.textContent = "Historical and Emotional Context:";
+                            contextParagraph.innerHTML = sections[1];
+                        }
+                    }
                 }
+            } catch (error) {
+                console.error('Failed to fetch new painting:', error);
+            } finally {
+                document.body.classList.remove('loading-cursor');
             }
         }
-        // Update the Twitter share link as needed
-        updateTwitterShareUrl(painting.title, painting.info.slice(0, 50) + '...', 'https://theartapp.vercel.app/');
-    } catch (error) {
-        console.error('Failed to fetch new painting:', error);
-    } finally {
-        // Remove the loading cursor class from the body
-        document.body.classList.remove('loading-cursor');
-    }
-} 
-    <script>
-    (function() {
-        var projectId = 'prj_qmxOR7d4Qnppv1JNhewTK7wrP7jG';
-        var script = document.createElement('script');
-        script.src = `https://vitals.vercel-analytics.com/v1/vitals.js?projectId=${projectId}`;
-        document.getElementsByTagName('body')[0].appendChild(script);
-    })();
     </script>
+    <script>
+        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>
