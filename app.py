@@ -75,7 +75,7 @@ def generate_artwork_info(artist, title, image_url):
         ]
         prompt = random.choice(prompts)
         text_response = openai.ChatCompletion.create(
-            model="gpt-4-1106-preview",
+            model="gpt-3.5-turbo-1106",
             messages=[
                 {
                     "role": "system",
