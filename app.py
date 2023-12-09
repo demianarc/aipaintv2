@@ -71,7 +71,7 @@ def generate_artwork_info(artist, title, image_url):
         )
         visual_text = visual_response.choices[0].message["content"]
         prompts = [
-            f"The painting '{title}' by {artist} features {visual_text}. What historical narratives and emotions might these details suggest? Be short, touching, and concise (max 3 sentences)",
+            f"The painting '{title}' by {artist} features {visual_text}. What historical narratives and emotions might these details suggest? Be short, touching, and concise. If possible, can you discuss the emotional undertones and historical context of this piece, and also if possible how its reflect the era and the artist's own journey.(max 3 sentences)",
         ]
         prompt = random.choice(prompts)
         text_response = openai.ChatCompletion.create(
@@ -79,7 +79,7 @@ def generate_artwork_info(artist, title, image_url):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a knowledgeable and articulate art historian."
+                    "content": "You are a knowledgeable and articulate art historian capable of deep insights into artworks."
                 },
                 {
                     "role": "user",

@@ -11,7 +11,7 @@ body {
 }
 
 body.dark-mode {
-    background-color: #121212;
+    background-color: #121212; /* Unified shade of black */
     color: #ffffff;
 }
 
@@ -21,11 +21,15 @@ body.dark-mode {
     justify-content: center;
     align-items: center;
     text-align: center;
-    max-width: 800px;
+    max-width: 1200px; /* Width of the average MacBook Pro screen */
+    width: 100%;
 }
 
 .content {
     flex-grow: 1;
+    width: 100%;
+    max-width: 1200px; /* Adjusted to the size of the average MacBook Pro */
+    padding: 20px; /* Padding to prevent content from touching the edges */
 }
 
 .subheading {
@@ -68,14 +72,25 @@ footer {
     margin-top: 1rem;
     font-size: 0.8rem;
     color: #666;
+    transition: color 0.3s; /* Smooth transition for color change */
+}
+footer a {
+    text-decoration: underline;
 }
 
-.info pre {
-    white-space: pre-wrap;
-    text-align: justify;
-    margin: 0 auto;
-    max-width: 90%;
-    padding: 15px;
+.dark-mode footer {
+    color: #cccccc; /* Lighter grey for better visibility */
+}
+
+.info {
+    max-width: 60%; /* Adjust to the desired width */
+    margin: 0 auto; /* This centers the `.info` block */
+    text-align: justify; /* Justify text for a cleaner look */
+}
+
+.info p {
+    margin-bottom: 1em; /* Adds space between paragraphs */
+    line-height: 1.5; /* Makes the text easier to read */
 }
 
 .button {
@@ -86,7 +101,7 @@ footer {
     text-decoration: none;
     display: inline-block;
     font-size: 1rem;
-    margin: 1rem 0;
+    margin: 10px;
     padding: 0.5rem 2rem;
     cursor: pointer;
     border-radius: 4px;
@@ -99,38 +114,20 @@ footer {
     transform: scale(1.05); /* Slightly enlarges the button */
 }
 
-.theme-toggle {
-    background-color: #4caf50;
-    color: #fff;
-    padding: 10px;
-    border: none;
-    border-radius: 5px;
+.dark-mode-text {
+    text-decoration: underline;
     cursor: pointer;
+    color: inherit; /* Inherit color from body for automatic theme change */
+    font-size: 0.8rem; /* Smaller font size for the dark mode toggle */
     margin-top: 10px;
-    transition: background-color 0.3s;
+    display: block; /* Ensures it appears on a new line */
 }
 
-.theme-toggle:hover {
-    background-color: #367c39;
+/* Ensure all backgrounds are unified in dark mode */
+.dark-mode .container, .dark-mode .content {
+    background-color: #121212; /* Same shade of black for consistency */
 }
 
-.dark-mode .theme-toggle {
-    background-color: #586e75;
-}
-
-.dark-mode .theme-toggle:hover {
-    background-color: #455a64;
-}
-
-.dark-mode .button {
-    background-color: #333;
-}
-
-.dark-mode .container {
-    background-color: #222;
-}
-
-/* Additional styles for animations and dark mode */
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -139,5 +136,3 @@ footer {
 .fadeIn {
     animation: fadeIn 1s ease-out;
 }
-
-/* Styles for modal and loading cursor remain unchanged */
