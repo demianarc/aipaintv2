@@ -71,7 +71,7 @@ def generate_artwork_info(artist, title, image_url):
         )
         visual_text = visual_response.choices[0].message["content"]
         prompts = [
-            f"The painting '{title}' by {artist} features {visual_text}. What historical narratives or emotions might these details suggest? Be short, touching, and concise (max 2 sentences)",
+            f"The painting '{title}' by {artist} features {visual_text}. What historical narratives and emotions might these details suggest? Be short, touching, and concise (max 3 sentences)",
         ]
         prompt = random.choice(prompts)
         text_response = openai.ChatCompletion.create(
@@ -89,7 +89,7 @@ def generate_artwork_info(artist, title, image_url):
             max_tokens=230
         )
         text = text_response.choices[0].message["content"]
-        combined_text = f"VISUAL_MARKER{visual_text}HISTORICAL_MARKER{text}"
+        combined_text = f"{visual_text} {text}"
 
         logging.info(f"Generated Artwork Info: {combined_text}")
         return combined_text.strip()
