@@ -47,6 +47,7 @@ body.dark-mode {
 
 .painting {
     max-width: 50%;
+    max-width: 300px
     height: auto;
     box-shadow: 0 4px 6px #010101;
     margin-bottom: 2rem;
@@ -59,8 +60,10 @@ body.dark-mode {
 }
 
 h1 {
-    font-size: 2.5rem;
-    margin-bottom: 1.5rem;
+    font-family: 'Lato', sans-serif;
+    font-size: 3rem; /* Adjust size as needed */
+    font-weight: 700; /* Lato's bold weight for emphasis */
+    margin-bottom: 1rem;
 }
 
 h2 {
@@ -115,12 +118,12 @@ footer a {
 }
 
 .dark-mode-text {
-    text-decoration: underline;
     cursor: pointer;
     color: inherit; /* Inherit color from body for automatic theme change */
-    font-size: 0.8rem; /* Smaller font size for the dark mode toggle */
+    font-size: 1rem; /* Adjust the size as needed */
     margin-top: 10px;
     display: block; /* Ensures it appears on a new line */
+    text-decoration: none; /* Removes underline */
 }
 
 /* Ensure all backgrounds are unified in dark mode */

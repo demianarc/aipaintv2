@@ -101,6 +101,10 @@ def generate_artwork_info(artist, title, image_url):
         return "An unexpected error occurred. Please try again later."
 
 @app.route('/')
+def landing_page():
+    return render_template('landing.html')
+
+@app.route('/app')
 def painting_of_the_day():
     painting = scrape_painting()
     if painting is None:
