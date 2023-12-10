@@ -1,59 +1,90 @@
-/* Landing Page Styles */
+/* Complete Landing Page Styles for a Minimalist and Centered Design */
+body, html {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: #f7f5eb;
+    font-family: 'Lato', sans-serif;
+    overflow-x: hidden; /* Prevents horizontal scrolling */
+}
+
+body.dark-mode {
+    background-color: #121212;
+    color: #ffffff;
+}
+
 .landing-container {
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    height: 100vh;
-    text-align: center;
-    background-color: #f7f5eb;
+    min-height: 100vh; /* Ensure it covers the viewport, but allows it to grow if necessary */
+    padding: 1rem; /* Reduced padding */
+    box-sizing: border-box; /* Includes padding in the height calculation */
 }
 
 .featured-artwork {
-    max-width: 300px; /* Adjust the image size as needed */
+    max-width: 300px; /* Size set to a fixed max-width to control the image size */
     height: auto;
-    margin-bottom: 1px; /* Space between the image and the description */
+    margin: 2rem auto; /* Increased margin for spacing and centers the image horizontally */
 }
 
-.art-description {
-    font-family: 'Lato', sans-serif; /* Match the font to the rest of the app */
-    color: #666; /* Color matching the footer text color */
-    font-size: 1rem;
-    margin-bottom: 10px; /* Space between the description and the title */
+.text-content {
+    text-align: center;
+}
+
+.text-content > * {
+    margin: 0.5rem 0; /* Uniform spacing between text elements */
 }
 
 h1 {
-    font-family: 'Lato', sans-serif;
-    font-size: 3rem; /* Keep the title size consistent with the app */
-    font-weight: 700;
-    margin-bottom: 0.1rem;
+    font-size: 2rem; /* Larger font size for title */
+    margin-bottom: 1rem;
 }
 
 .explanation {
-    font-family: 'Lato', sans-serif; /* Match the font to the rest of the app */
-    font-size: 1rem;
-    color: #555;
-    margin-bottom: 2rem; /* Space between explanation and button */
+    font-size: 1.2rem; /* Larger font size for explanation */
+    margin-bottom: 2rem;
 }
 
 .enter-app-button {
-    font-family: 'Lato', sans-serif;
     background-color: #4caf50;
     color: white;
-    padding: 10px 20px;
+    padding: 15px 30px;
     text-decoration: none;
     border-radius: 5px;
     font-size: 1rem;
-    margin: 0;
+    margin: 1.5rem 0 1rem 0; /* Space above and below the button */
     transition: background-color 0.3s, transform 0.3s;
 }
 
 .enter-app-button:hover {
-    background-color: #367c39; /* Darker shade for the hover effect */
-    transform: scale(1.05); /* Slightly enlarges the button */
+    background-color: #367c39;
+    transform: scale(1.05);
 }
 
-/* Add the fadeIn effect from your app's style */
+.dark-mode-text {
+    font-size: 1rem; /* Adjusted size for the emoji */
+    cursor: pointer;
+    display: block; /* Emoji on its own line */
+    margin: 1.2rem auto; /* Adjusted margin to add a slight space */
+}
+
+.footer {
+    font-size: 0.8rem;
+    font-style: italic;
+    color: #666;
+    margin: 1rem 0;
+}
+
+body.dark-mode .footer {
+    color: #ccc;
+}
+
+.loading-cursor {
+    cursor: progress!important;
+}
+
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -61,4 +92,20 @@ h1 {
 
 .fadeIn {
     animation: fadeIn 1s ease-out;
+}
+
+@media (min-width: 992px) {
+    .landing-container {
+        justify-content: flex-start; /* Aligns content to the top */
+        padding-top: 3rem; /* Add padding at the top to center vertically */
+    }
+
+    .featured-artwork {
+        max-width: 25%; /* Adjusted to be smaller on larger screens */
+    }
+
+    .text-content {
+        max-width: 50%;
+        margin-top: 0; /* Remove additional top margin */
+    }
 }

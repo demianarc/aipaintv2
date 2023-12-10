@@ -62,7 +62,7 @@ def generate_artwork_info(artist, title, image_url):
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Describe this painting, focusing on its most notable visual aspects. Be short and concise, max 2 sentences"},
+                        {"type": "text", "text": "Describe this artwork, focusing on its most notable visual aspects. Be short and concise, max 2 sentences"},
                         {"type": "image_url", "image_url": image_url},
                     ]
                 }
@@ -71,7 +71,7 @@ def generate_artwork_info(artist, title, image_url):
         )
         visual_text = visual_response.choices[0].message["content"]
         prompts = [
-            f"The painting '{title}' by {artist} features {visual_text}. What historical narratives and emotions might these details suggest? Be short, touching, and concise. If possible, can you discuss the emotional undertones and historical context of this piece, and also if possible how its reflect the era and the artist's own journey.(max 3 sentences)",
+            f"The artwork '{title}' by {artist} features {visual_text}. What historical narratives and emotions might these details suggest? Be short, touching, and concise. If possible, can you discuss the emotional undertones and historical context of this piece, and also if possible how its reflect the era and the artist's own journey.(max 3 sentences)",
         ]
         prompt = random.choice(prompts)
         text_response = openai.ChatCompletion.create(

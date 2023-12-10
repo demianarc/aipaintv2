@@ -6,18 +6,54 @@
     <title>The AI Museum</title>
     <link rel="stylesheet" href="/static/css/landing-style.css">
 </head>
-<body>
-    <div class="landing-container fadeIn">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/Jean-Baptiste_Greuze_-_Fright_-_1994.145_-_Fogg_Museum.jpg/1016px-Jean-Baptiste_Greuze_-_Fright_-_1994.145_-_Fogg_Museum.jpg" 
+<body class="dark-mode fadeIn">
+    <div class="landing-container">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/Jean-Baptiste_Greuze_-_Fright_-_1994.145_-_Fogg_Museum.jpg/1016px-Jean-Baptiste_Greuze_-_Fright_-_1994.145_-_Fogg_Museum.jpg"
              alt="Fright by Jean-Baptiste Greuze" 
              class="featured-artwork">
-        <div class="art-description">
-            <p><strong>Fright</strong> by Jean-Baptiste Greuze</p>
+        <div class="text-content">
+            <h1>🏛️ The AI Museum</h1>
+            <p class="explanation">Discover art's hidden stories with the power of AI.</p>
+            <a href="/app" class="enter-app-button" id="enter-museum-button">Enter the Museum</a>
+            <span id="dark-mode-toggle" class="dark-mode-text">&#127774;</span>
+            <p class="footer">
+                Featured artwork: <strong>Fright</strong> by Jean-Baptiste Greuze.
+                <br> Flask-based Web App with OpenAI Integration, Developed Using ChatGPT-3.5, GPT4 Vision and Harvard's API.
+                <br> Dev by Dylan. <a href="https://medium.com/@bristotdylan/vision-through-art-how-ai-unveils-the-unseen-stories-77c6c0bd73bb" target="_blank" rel="noopener noreferrer">Read blog post</a>.
+            </p>
         </div>
-        <h1>Discover the Unseen with AI</h1>
-        <p class="explanation">Explore a unique blend of art and AI technology, unveiling the stories behind each masterpiece.</p>
-        <a href="/app" class="enter-app-button">Enter the Museum</a>
     </div>
     <script src="/static/js/landing.js"></script>
+    <script>
+        // Function to toggle dark mode
+        function toggleDarkMode() {
+        var darkModeToggle = document.getElementById('dark-mode-toggle');
+        if (document.body.classList.contains('dark-mode')) {
+            document.body.classList.remove('dark-mode');
+            document.body.classList.add('light-mode');
+            darkModeToggle.innerHTML = '&#127769;'; // Moon emoji
+            localStorage.setItem('theme', 'light');
+        } else {
+            document.body.classList.remove('light-mode');
+            document.body.classList.add('dark-mode');
+            darkModeToggle.innerHTML = '&#127774;'; // Sun emoji
+            localStorage.setItem('theme', 'dark');
+        }
+    }
+    
+        // Event listener for the dark mode toggle button
+        document.getElementById('dark-mode-toggle').addEventListener('click', toggleDarkMode);
+    
+        // Initialize dark mode based on user preference
+        window.addEventListener('load', () => {
+            var darkModeToggle = document.getElementById('dark-mode-toggle');
+            var storedTheme = localStorage.getItem('theme');
+            if (storedTheme === 'light') {
+                document.body.classList.remove('dark-mode');
+                document.body.classList.add('light-mode');
+                darkModeToggle.innerHTML = '&#127769;'; // Moon emoji
+            }
+        });
+</script>
 </body>
 </html>
