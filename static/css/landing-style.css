@@ -67,14 +67,15 @@ h1 {
     font-size: 1rem; /* Adjusted size for the emoji */
     cursor: pointer;
     display: block; /* Emoji on its own line */
-    margin: 1.2rem auto; /* Adjusted margin to add a slight space */
+    margin: 1.2rem auto 7rem; /* Adjusted margin to add a slight space */
 }
 
 .footer {
     font-size: 0.8rem;
     font-style: italic;
     color: #666;
-    margin: 1rem 0;
+    margin-top: auto;
+    padding-bottom: 0.5rem;
 }
 
 body.dark-mode .footer {
