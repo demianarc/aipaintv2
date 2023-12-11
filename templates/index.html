@@ -16,8 +16,8 @@
         h1, h2 { font-size: 2.2rem; font-weight: 600; }
         .section-header { font-size: 1.5rem; font-weight: 500; margin-top: 20px; margin-bottom: 10px; }
         .info p {
-            font-size: 1rem; /* New font size for output text */
-            line-height: 1.6;  /* Retaining the original line height */}
+        font-size: 1rem; /* New font size for output text */
+        line-height: 1.6;  /* Retaining the original line height */}
         .twitter-share { font-size: 1.2rem; color: #1da1f2; cursor: pointer; margin-left: 10px; }
         .modal { display: none; position: fixed; z-index: 1; padding-top: 100px; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0, 0, 0, .9); }
         .modal-content { margin: auto; display: block; width: 80%; max-width: 800px; max-height: 80%; }
@@ -34,7 +34,7 @@
             </h1>
             <img src="{{ painting.image_url }}" loading="lazy" alt="{{ painting.title }}" class="painting" onclick="openModal(this)">
             <h2>{{ painting.title }}</h2>
-            <p>By {{ painting.artist }} ({{ painting.dated }})</p>
+            <p>By {{ painting.artist }} ({{ painting.date }})</p>
             <div class="info">
                 <p>{{ painting.info | safe }}</p>
             </div>
@@ -42,73 +42,82 @@
             <span id="dark-mode-toggle" class="dark-mode-text">&#127774;</span> <!-- Initially showing the sun emoji -->
             <a href="https://twitter.com/share?url=https://theartapp.vercel.app/&text=Check%20out%20this%20amazing%20AI%20Art%20App!&hashtags=ArtApp,AI" target="_blank" class="twitter-share">
                 <i class="fab fa-twitter"></i>
-            </a>
-        </div>
-        <div id="modal" class="modal">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <div class="modal-content">
-                <img id="modal-image">
-            </div>
-        </div>
-        <script>
-            function openModal(img) {
-                var modal = document.getElementById("modal");
-                var modalImg = document.getElementById("modal-image");
-                modal.style.display = "block";
-                modalImg.src = img.src;
-            }
-
-            function closeModal() {
-                var modal = document.getElementById("modal");
-                modal.style.display = "none";
-            }
-
-            async function fetchNewPainting() {
-                document.body.classList.add('loading-cursor');
-                try {
-                    const response = await fetch('/refresh');
-                    const painting = await response.json();
-                    document.querySelector('.painting').src = painting.image_url;
-                    document.querySelector('h2').textContent = painting.title;
-                    document.querySelector('p').textContent = `By ${painting.artist} (${painting.dated})`;
-                    document.querySelector('.info p').innerHTML = painting.info;
-                } catch (error) {
-                    console.error('Failed to fetch new painting:', error);
-                } finally {
-                    document.body.classList.remove('loading-cursor');
-                }
-            }
-        </script>
-        <script>
-            window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-        </script>
-        <script defer src="/_vercel/insights/script.js"></script>
-        <script>
-            function toggleDarkMode() {
-                var darkModeToggle = document.getElementById('dark-mode-toggle');
-                if (document.body.classList.contains('dark-mode')) {
-                    document.body.classList.remove('dark-mode');
-                    document.body.classList.add('light-mode');
-                    darkModeToggle.innerHTML = '&#127769;';
-                    localStorage.setItem('theme', 'light');
-                } else {
-                    document.body.classList.remove('light-mode');
-                    document.body.classList.add('dark-mode');
-                    darkModeToggle.innerHTML = '&#127774;';
-                    localStorage.setItem('theme', 'dark');
-                }
-            }
-            document.getElementById('dark-mode-toggle').addEventListener('click', toggleDarkMode);
-            window.addEventListener('load', () => {
-                var darkModeToggle = document.getElementById('dark-mode-toggle');
-                var storedTheme = localStorage.getItem('theme');
-                if (storedTheme === 'light') {
-                    document.body.classList.remove('dark-mode');
-                    document.body.classList.add('light-mode');
-                    darkModeToggle.innerHTML = '&#127769;';
-                }
-            });
-        </script>
+            </a> 
     </div>
+    <div id="modal" class="modal">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <div class="modal-content">
+            <img id="modal-image">
+        </div>
+    </div>
+    <script>
+        function openModal(img) {
+            var modal = document.getElementById("modal");
+            var modalImg = document.getElementById("modal-image");
+            modal.style.display = "block";
+            modalImg.src = img.src;
+        }
+
+        function closeModal() {
+            var modal = document.getElementById("modal");
+            modal.style.display = "none";
+        }
+
+        async function fetchNewPainting() {
+    document.body.classList.add('loading-cursor'); // This adds the loading cursor
+    try {
+        const response = await fetch('/refresh');
+        const painting = await response.json();
+
+        // Updating the painting information
+        document.querySelector('.painting').src = painting.image_url;
+        document.querySelector('h2').textContent = painting.title;
+        document.querySelector('p').textContent = `By ${painting.artist} (${painting.date})`;
+
+        // Directly updating the info without using VISUAL_MARKER and HISTORICAL_MARKER
+        document.querySelector('.info p').innerHTML = painting.info;
+    } catch (error) {
+        console.error('Failed to fetch new painting:', error);
+    } finally {
+        document.body.classList.remove('loading-cursor'); // This removes the loading cursor
+    }
+}
+    </script>
+    <script>
+        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
+    <script>
+        // Function to toggle dark mode
+        function toggleDarkMode() {
+        var darkModeToggle = document.getElementById('dark-mode-toggle');
+        if (document.body.classList.contains('dark-mode')) {
+            document.body.classList.remove('dark-mode');
+            document.body.classList.add('light-mode');
+            darkModeToggle.innerHTML = '&#127769;'; // Moon emoji
+            localStorage.setItem('theme', 'light');
+        } else {
+            document.body.classList.remove('light-mode');
+            document.body.classList.add('dark-mode');
+            darkModeToggle.innerHTML = '&#127774;'; // Sun emoji
+            localStorage.setItem('theme', 'dark');
+        }
+    }
+    
+        // Event listener for the dark mode toggle button
+        document.getElementById('dark-mode-toggle').addEventListener('click', toggleDarkMode);
+    
+        // Initialize dark mode based on user preference
+        window.addEventListener('load', () => {
+            var darkModeToggle = document.getElementById('dark-mode-toggle');
+            var storedTheme = localStorage.getItem('theme');
+            if (storedTheme === 'light') {
+                document.body.classList.remove('dark-mode');
+                document.body.classList.add('light-mode');
+                darkModeToggle.innerHTML = '&#127769;'; // Moon emoji
+            }
+        });
+</script>
+    
 </body>
 </html>
