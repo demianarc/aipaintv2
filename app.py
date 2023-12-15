@@ -22,7 +22,7 @@ API_ENDPOINT = "https://api.openai.com/v1/chat/completions"
 
 def scrape_painting():
     api_key = os.environ.get("HARVARD_API_KEY")
-    fields = 'primaryimageurl,title,people,date'
+    fields = 'primaryimageurl,title,people,dated'
     url = f"https://api.harvardartmuseums.org/object?apikey={api_key}&size=100&sort=random&classification=Paintings&hasimage=1&sortorder=asc&fields={fields}"
 
     try:
@@ -40,22 +40,28 @@ def scrape_painting():
         painting = random.choice(records)
         image_url = painting.get("primaryimageurl")
         title = painting.get("title")
-        artist = painting["people"][0].get("name") if "people" in painting and painting["people"] else "Unknown artist"
-        date = painting.get("dated")
+        
+        # Handling multiple artists
+        artist_names = [person.get("name", "Unknown artist") for person in painting.get("people", []) if "name" in person]
+        artist = ", ".join(artist_names) if artist_names else "Unknown artist"
+
+        dated = painting.get("dated", "Not available")
 
         return {
             "image_url": image_url,
             "title": title,
             "artist": artist,
-            "date": date
+            "dated": dated
         }
     except requests.exceptions.RequestException as e:
         logging.error(f"Request to Harvard API failed: {e}")
         return None
 
+
 # Updated generate_artwork_info function with full functionality and logging
-def generate_artwork_info(artist, title, image_url):
+def generate_artwork_info(artist, title, dated, image_url):
     try:
+        # Generate a visual description using GPT-4 Vision
         visual_response = openai.ChatCompletion.create(
             model="gpt-4-vision-preview",
             messages=[
@@ -70,10 +76,11 @@ def generate_artwork_info(artist, title, image_url):
             max_tokens=150
         )
         visual_text = visual_response.choices[0].message["content"]
-        prompts = [
-            f"The artwork '{title}' by {artist} features {visual_text}. What historical narratives and emotions might these details suggest? Be short, touching, and concise. If possible, can you discuss the emotional undertones and historical context of this piece, and also if possible how its reflect the era and the artist's own journey.(max 3 sentences)",
-        ]
-        prompt = random.choice(prompts)
+
+        # Construct a prompt for GPT-3.5, including the artwork's title, artist, and year
+        prompt = f"The artwork '{title}' by {artist}, created in {dated}, features {visual_text}. What historical narratives and emotions might these details suggest? Be short, touching, and concise. Can you discuss the emotional undertones and historical context of this piece, reflecting the era and the artist's own journey? (max 3 sentences)"
+        
+        # Generate a textual response using GPT-3.5
         text_response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo-1106",
             messages=[
@@ -100,6 +107,7 @@ def generate_artwork_info(artist, title, image_url):
         logging.error(f"An unexpected error occurred: {e}")
         return "An unexpected error occurred. Please try again later."
 
+
 @app.route('/')
 def landing_page():
     return render_template('landing.html')
@@ -110,7 +118,7 @@ def painting_of_the_day():
     if painting is None:
         painting_info = "Information could not be generated due to an error."
     else:
-        painting_info = generate_artwork_info(painting["artist"], painting["title"], painting["image_url"])
+        painting_info = generate_artwork_info(painting["artist"], painting["title"], painting["dated"], painting["image_url"])
     
     painting["info"] = painting_info if painting_info else "Information could not be generated."
     painting_json = json.dumps(painting if painting else {})
@@ -119,7 +127,10 @@ def painting_of_the_day():
 @app.route('/refresh')
 def refresh():
     painting = scrape_painting()
-    painting_info = generate_artwork_info(painting["artist"], painting["title"], painting["image_url"])
+    if painting is None:
+        return jsonify({"error": "No painting available"})
+    # Pass 'dated' to the function
+    painting_info = generate_artwork_info(painting["artist"], painting["title"], painting["dated"], painting["image_url"])
     painting["info"] = painting_info
     return jsonify(painting)
 
