@@ -2,7 +2,7 @@ from flask import Flask, render_template
 from flask import jsonify
 import requests
 from bs4 import BeautifulSoup
-import openai
+from openai import OpenAI
 import random
 import os
 import json
@@ -10,6 +10,8 @@ from flask import make_response
 from flask import request
 import ijson
 import logging
+from dotenv import load_dotenv
+load_dotenv() 
 
 
 
@@ -17,95 +19,103 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
 # Load OpenAI API key from environment variables
-openai.api_key = os.environ.get("OPENAI_API_KEY")
+client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 API_ENDPOINT = "https://api.openai.com/v1/chat/completions"
 
 def scrape_painting():
-    api_key = os.environ.get("HARVARD_API_KEY")
+    api_key = os.getenv("HARVARD_API_KEY")
     fields = 'primaryimageurl,title,people,dated'
     url = f"https://api.harvardartmuseums.org/object?apikey={api_key}&size=100&sort=random&classification=Paintings&hasimage=1&sortorder=asc&fields={fields}"
 
-    try:
-        response = requests.get(url, stream=True)
-        logging.info(f"URL: {url}")
-        logging.info(f"Response status code: {response.status_code}")
+    response = requests.get(url)
+    logging.info(f"URL: {url}")
+    logging.info(f"Response status code: {response.status_code}")
 
-        response.raise_for_status()
-        items = ijson.items(response.raw, 'records.item')
-        records = list(items)
-
-        if not records:
-            return None
-
-        painting = random.choice(records)
-        image_url = painting.get("primaryimageurl")
-        title = painting.get("title")
-        
-        # Handling multiple artists
-        artist_names = [person.get("name", "Unknown artist") for person in painting.get("people", []) if "name" in person]
-        artist = ", ".join(artist_names) if artist_names else "Unknown artist"
-
-        dated = painting.get("dated", "Not available")
-
-        return {
-            "image_url": image_url,
-            "title": title,
-            "artist": artist,
-            "dated": dated
-        }
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Request to Harvard API failed: {e}")
+    if response.status_code != 200:
+        logging.error("Failed to fetch painting information.")
         return None
+
+    data = response.json()
+    if not data['records']:
+        logging.error("No records found.")
+        return None
+
+    painting = random.choice(data['records'])
+    image_url = painting.get("primaryimageurl")
+    title = painting.get("title")
+    artist_names = [person.get("name", "Unknown artist") for person in painting.get("people", [])]
+    artist = ", ".join(artist_names) if artist_names else "Unknown artist"
+    dated = painting.get("dated", "Not available")
+    
+    # Log the fetched image URL
+    logging.info(f"Fetched image URL: {image_url}")
+
+    return {
+        "image_url": image_url,
+        "title": title,
+        "artist": artist,
+        "dated": dated
+    }
 
 
 # Updated generate_artwork_info function with full functionality and logging
 def generate_artwork_info(artist, title, dated, image_url):
+    logging.info("Starting generate_artwork_info")
+    logging.info(f"Sending image URL to OpenAI: {image_url}")
+    
+    # Initialize variables to ensure they have a value even if the subsequent API calls fail
+    visual_text = "Visual description not available"
+    text = "Textual interpretation not available"
+    combined_text = ""
+
     try:
-        # Generate a visual description using GPT-4 Vision
-        visual_response = openai.ChatCompletion.create(
+        # Adjusted request to include the image URL correctly
+        visual_response = client.chat.completions.create(
             model="gpt-4-vision-preview",
             messages=[
                 {
                     "role": "user",
                     "content": [
                         {"type": "text", "text": "Describe this artwork, focusing on its most notable visual aspects. Be short and concise, max 2 sentences"},
-                        {"type": "image_url", "image_url": image_url},
-                    ]
+                        {"type": "image_url", "image_url": {"url": image_url}},
+                    ],
                 }
             ],
             max_tokens=150
         )
-        visual_text = visual_response.choices[0].message["content"]
+        # Assume successful response and update visual_text
+        visual_text = visual_response.choices[0].message.content.strip()
 
-        # Construct a prompt for GPT-3.5, including the artwork's title, artist, and year
         prompt = f"The artwork '{title}' by {artist}, created in {dated}, features {visual_text}. What historical narratives and emotions might these details suggest? Be short, touching, and concise. Can you discuss the emotional undertones and historical context of this piece, reflecting the era and the artist's own journey? (max 3 sentences)"
         
-        # Generate a textual response using GPT-3.5
-        text_response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo-1106",
+        text_response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
             messages=[
                 {
                     "role": "system",
                     "content": "You are a knowledgeable and articulate art historian capable of deep insights into artworks."
                 },
                 {
-                    "role": "user",
-                    "content": prompt
+                    "role": "system",
+                    "content": prompt,
                 }
             ],
             max_tokens=230
         )
-        text = text_response.choices[0].message["content"]
+        # Update text based on successful response
+        text = text_response.choices[0].message.content.strip()
         combined_text = f"{visual_text} {text}"
 
-        logging.info(f"Generated Artwork Info: {combined_text}")
-        return combined_text.strip()
-    except openai.error.OpenAIError as e:
-        logging.error(f"OpenAI API error: {e}")
-        return "An error occurred while processing the image. Please try again later."
     except Exception as e:
-        logging.error(f"An unexpected error occurred: {e}")
-        return "An unexpected error occurred. Please try again later."
+        logging.error(f"An error occurred in generate_artwork_info: {e}")
+
+    # Logging after ensuring variables are initialized and potentially updated
+    logging.info(f"Visual Description from GPT-4: {visual_text}")
+    logging.info(f"Textual Interpretation from GPT-3.5: {text}")
+    logging.info(f"Combined Artwork Info: {combined_text}")
+
+    return combined_text.strip()
+
 
 
 @app.route('/')
@@ -115,24 +125,24 @@ def landing_page():
 @app.route('/app')
 def painting_of_the_day():
     painting = scrape_painting()
-    if painting is None:
+    if not painting:
         painting_info = "Information could not be generated due to an error."
     else:
         painting_info = generate_artwork_info(painting["artist"], painting["title"], painting["dated"], painting["image_url"])
-    
-    painting["info"] = painting_info if painting_info else "Information could not be generated."
-    painting_json = json.dumps(painting if painting else {})
-    return render_template('index.html', painting=painting, painting_json=painting_json)
+        logging.info(f"Rendering image URL to template: {painting['image_url']}")
 
-@app.route('/refresh')
+    painting["info"] = painting_info if painting_info else "Information could not be generated."
+    return render_template('index.html', painting=painting)
+
+@app.route('/refresh', methods=['GET'])
 def refresh():
     painting = scrape_painting()
-    if painting is None:
+    if not painting:
         return jsonify({"error": "No painting available"})
-    # Pass 'dated' to the function
     painting_info = generate_artwork_info(painting["artist"], painting["title"], painting["dated"], painting["image_url"])
     painting["info"] = painting_info
     return jsonify(painting)
+
 
 @app.after_request
 def add_caching_headers(response):
@@ -152,5 +162,5 @@ def add_caching_headers(response):
     return response
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 5001))
     app.run(host="0.0.0.0", port=port)
