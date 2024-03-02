@@ -18,7 +18,7 @@ load_dotenv()
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
-# Load OpenAI API key from environment variables
+# Load OpenAI API key from environment variable
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 API_ENDPOINT = "https://api.openai.com/v1/chat/completions"
 
@@ -160,6 +160,7 @@ def add_caching_headers(response):
         # No caching for the API responses that fetch new paintings
         response.headers['Cache-Control'] = 'no-store'
     return response
+        # No
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5001))
