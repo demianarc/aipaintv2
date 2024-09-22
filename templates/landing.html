@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The AI Museum</title>
+    <link rel="stylesheet" href="/static/css/landing-style.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/loader.css">
+</head>
+<body class="dark-mode fadeIn">
+    <!-- Navigation Menu -->
+    <nav class="navbar">
+        <a href="/" class="nav-item">home</a>
+        <a href="/app" class="nav-item">museum</a>
+        <a href="/favorites" class="nav-item">favorites</a>
+        <a href="/about" class="nav-item">about</a>
+        <span id="dark-mode-toggle" class="nav-item dark-mode-toggle">🌙</span>
+    </nav>
+    <!-- Loader -->
+    <div id="loader" class="loader-container">
+        <div class="loader"></div>
+    </div>
+    <div class="landing-container">
+        <div class="text-content">
+            <h1>YOUR FAVORITE ARTWORKS, DECODED</h1>
+            <p class="subheading">Bringing masterpieces to life.</p>
+            <p class="tagline">Discover, understand and cherish unique artworks.</p>
+            <a href="/app" class="enter-app-button" id="enter-museum-button">enter museum</a>
+        </div>
+    </div>
+    <script src="/static/js/global.js"></script>
+    <script>
+        // Function to toggle dark mode
+        function toggleDarkMode() {
+            var body = document.body;
+            var darkModeToggle = document.getElementById('dark-mode-toggle');
+            if (body.classList.contains('dark-mode')) {
+                body.classList.remove('dark-mode');
+                body.classList.add('light-mode');
+                darkModeToggle.innerHTML = '☀️'; // Sun emoji
+                localStorage.setItem('theme', 'light');
+            } else {
+                body.classList.remove('light-mode');
+                body.classList.add('dark-mode');
+                darkModeToggle.innerHTML = '🌙'; // Moon emoji
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // Event listener for the dark mode toggle button
+        document.getElementById('dark-mode-toggle').addEventListener('click', toggleDarkMode);
+
+        // Initialize dark mode based on user preference
+        window.addEventListener('load', () => {
+            var darkModeToggle = document.getElementById('dark-mode-toggle');
+            var storedTheme = localStorage.getItem('theme');
+            if (storedTheme === 'light') {
+                document.body.classList.remove('dark-mode');
+                document.body.classList.add('light-mode');
+                darkModeToggle.innerHTML = '☀️'; // Sun emoji
+            }
+            document.addEventListener('DOMContentLoaded', function() {
+            const enterMuseumButton = document.getElementById('enter-museum-button');
+            if (enterMuseumButton) {
+                enterMuseumButton.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    document.body.classList.add('loading');
+                    setTimeout(() => {
+                        window.location.href = '/app';
+                    }, 100); // Small delay to ensure loader is shown
+                });
+    </script>
+</body>
+</html>

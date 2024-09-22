@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About - The AI Museum</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="{{ url_for('landing_page') }}" class="nav-item">home</a>
+        <a href="{{ url_for('painting_of_the_day') }}" class="nav-item">museum</a>
+        <a href="{{ url_for('favorites') }}" class="nav-item">favorites</a>
+        <a href="{{ url_for('about') }}" class="nav-item">about</a>
+        <span id="dark-mode-toggle" class="nav-item dark-mode-toggle">🌙</span>
+    </nav>
+
+    <div class="container">
+        <div class="content about-content">
+            <h1>About The AI Museum</h1>
+            <p>Welcome to The AI Museum, where art meets artificial intelligence. Our mission is to bring the world of art to life through the power of AI, offering unique interpretations and insights into masterpieces from around the globe.</p>
+            
+            <h2>Our Vision</h2>
+            <p>We believe that art has the power to inspire, educate, and transform. By leveraging cutting-edge AI technology, we aim to make art more accessible and engaging for everyone, from art enthusiasts to newcomers alike.</p>
+            
+            <h2>How It Works</h2>
+            <p>Our AI-powered platform curates a diverse collection of artworks and provides AI-generated interpretations that offer fresh perspectives on each piece. By combining historical context with modern analysis, we create a unique experience that bridges the gap between classic art and contemporary understanding.</p>
+            
+            <h2>Get Involved</h2>
+            <p>We're always looking for ways to improve and expand our digital museum. If you have suggestions, feedback, or would like to contribute to our project, please don't hesitate to reach out.</p>
+            
+            <p>Thank you for visiting The AI Museum. We hope you enjoy your journey through the world of art, enhanced by the insights of artificial intelligence.</p>
+
+            <div class="additional-info">
+                <p>Featured artwork: <strong>Fright</strong> by Jean-Baptiste Greuze.</p>
+                <p>Flask-based Web App with OpenAI Integration, Developed Using ChatGPT-3.5, GPT4 Vision and Harvard's API.</p>
+                <p>Dev by Dylan. <a href="https://medium.com/@bristotdylan/vision-through-art-how-ai-unveils-the-unseen-stories-77c6c0bd73bb" target="_blank" rel="noopener noreferrer">Read blog post</a>.</p>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/global.js') }}"></script>
+</body>
+</html>

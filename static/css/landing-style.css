@@ -1,0 +1,124 @@
+/* Landing Page Styles */
+body, html {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: 'Playfair Display', serif;
+    overflow-x: hidden;
+}
+
+body {
+    color: #ffffff;
+    background-color: #121212;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+body.light-mode {
+    color: #000000;
+    background-color: #f7f5eb;
+}
+
+.landing-container {
+    display: flex;
+    min-height: 100vh;
+    background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/Jean-Baptiste_Greuze_-_Fright_-_1994.145_-_Fogg_Museum.jpg/1016px-Jean-Baptiste_Greuze_-_Fright_-_1994.145_-_Fogg_Museum.jpg');
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    justify-content: center;
+    align-items: center;
+}
+
+.landing-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 1;
+}
+
+.text-content {
+    position: relative;
+    z-index: 2;
+    color: #ffffff;
+    max-width: 800px;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+h1 {
+    font-size: 3.5rem;
+    line-height: 1.2;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+}
+
+.subheading {
+    font-size: 1.8rem;
+    margin-top: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.tagline {
+    font-size: 1.3rem;
+    margin-bottom: 2rem;
+    font-weight: 300;
+}
+
+.enter-app-button {
+    background-color: #D4AF37;
+    color: #000000;
+    padding: 12px 24px;
+    text-decoration: none;
+    border-radius: 5px;
+    font-size: 1.1rem;
+    transition: background-color 0.3s, transform 0.3s;
+    display: inline-block;
+    margin-top: 1.5rem;
+    text-transform: lowercase;
+}
+
+.enter-app-button:hover {
+    background-color: #FFD700;
+    transform: scale(1.05);
+}
+
+.footer {
+    font-size: 0.9rem;
+    margin-top: 2rem;
+    opacity: 0.7;
+}
+
+.fadeIn {
+    animation: fadeIn 1s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .text-content {
+        padding: 1rem;
+    }
+
+    h1 {
+        font-size: 2.5rem;
+    }
+
+    .subheading {
+        font-size: 1.3rem;
+    }
+
+    .tagline {
+        font-size: 1.1rem;
+    }
+}

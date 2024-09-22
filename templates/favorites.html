@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Your Favorites</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/favorites.css">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="dark-mode">
+    <!-- Navigation Menu -->
+    <nav class="navbar">
+        <a href="/" class="nav-item">home</a>
+        <a href="/app" class="nav-item">museum</a>
+        <a href="/favorites" class="nav-item">favorites</a>
+        <a href="/about" class="nav-item">about</a>
+        <span id="dark-mode-toggle" class="nav-item dark-mode-toggle">🌙</span>
+    </nav>
+
+    <div class="container">
+        <div class="content">
+            <h1>Your museum</h1>
+            <div id="favorites-container" class="favorites-grid">
+                <!-- Favorite items will be injected here by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Viewing Details -->
+    <div id="modal" class="modal">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <div class="modal-content">
+            <img id="modal-image">
+            <div class="modal-details">
+                <h2 id="modal-title"></h2>
+                <p id="modal-artist"></p>
+                <p id="modal-interpretation"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast"></div>
+
+    <script src="/static/js/global.js"></script>
+</body>
+</html>

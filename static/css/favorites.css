@@ -1,0 +1,157 @@
+/* Favorites Page Styles */
+body, html {
+    font-family: 'Playfair Display', serif;
+    margin: 0;
+    padding: 0;
+    background-color: #121212;
+    color: #ffffff;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+body.light-mode {
+    background-color: #f7f5eb;
+    color: #000000;
+}
+
+.container {
+    padding-left: 100x; /* Increased padding to prevent content from being hidden */
+    padding-top: 2rem;
+    min-height: 100vh; /* Ensure the container takes up full height */
+    box-sizing: border-box; /* Include padding in the height calculation */
+}
+
+.content {
+    padding: 2rem;
+}
+
+h1 {
+    text-align: left; /* Align the title to the left */
+    margin-bottom: 2rem;
+}
+
+/* Grid Layout for Favorites */
+.favorites-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.favorite-item {
+    position: relative;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s;
+    overflow: hidden;
+    aspect-ratio: 1 / 1;
+}
+
+.favorite-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    transition: transform 0.3s ease-in-out;
+}
+
+.favorite-item:hover img {
+    transform: scale(1.1);
+}
+
+/* Delete Button */
+.delete-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 255, 255, 0.7);
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: background 0.3s, color 0.3s;
+}
+
+.delete-button:hover {
+    background: rgba(255, 0, 0, 0.8);
+    color: #fff;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1001;
+    padding-top: 60px;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.9);
+}
+
+.modal-content {
+    position: relative;
+    margin: 60px auto;
+    padding: 20px;
+    width: 80%;
+    max-width: 800px;
+    max-height: 80vh; /* Limit height to 80% of viewport height */
+    overflow-y: auto; /* Enable vertical scrolling */
+    background-color: #1e1e1e;
+    border-radius: 8px;
+    color: #fff;
+}
+
+
+.modal-content img {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+}
+
+.modal-details {
+    margin-top: 15px;
+}
+
+.modal-details h2 {
+    margin-bottom: 10px;
+}
+
+.modal-details p {
+    margin-bottom: 10px;
+}
+
+/* Close Button */
+.close {
+    color: #ffffff;
+    position: absolute;
+    top: 20px;
+    right: 35px;
+    font-size: 40px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.3s;
+}
+
+.close:hover, .close:focus {
+    color: #f1f1f1;
+    text-decoration: none;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .container {
+        padding-left: 0;
+        padding-top: 60px; /* Adjust based on your navbar height */
+    }
+    
+    .favorites-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+}

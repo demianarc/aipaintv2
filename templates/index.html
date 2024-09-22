@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Art AI Interpreter</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Source+Sans+Pro:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="/static/favicon.png"/>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@700&display=swap" rel="stylesheet">
+</head>
+<body class="dark-mode">
+    <!-- Navigation Menu -->
+    <nav class="navbar">
+        <a href="/" class="nav-item">home</a>
+        <a href="/app" class="nav-item">museum</a>
+        <a href="/favorites" class="nav-item">favorites</a>
+        <a href="/about" class="nav-item">about</a>
+        <span id="dark-mode-toggle" class="nav-item dark-mode-toggle">🌙</span>
+    </nav>
+
+    <!-- Loader -->
+    <div id="loader" class="loader-container">
+        <div class="loader"></div>
+    </div>
+
+    <div class="container">
+        <div class="content">
+            <img id="artwork-img" src="{{ painting.image_url }}" loading="lazy" alt="{{ painting.title }}" class="painting-main" onclick="openModal(this)">
+            <h2 id="artwork-title">{{ painting.title }}</h2>
+            <p id="artwork-artist">By {{ painting.artist }} ({{ painting.dated }})</p>
+            <div class="info">
+                <p id="artwork-interpretation">{{ painting.info | safe }}</p>
+            </div>
+            <div class="button-group">
+                <button class="button add-favorite-button" onclick="toggleFavorite()">Add to Favorites ❤️</button>
+                <button class="button" onclick="fetchNewPainting()">New Artwork 🎨</button>
+            </div>
+            <!-- Removed duplicate dark mode toggle at the bottom -->
+            
+        </div>
+    </div>
+
+    <!-- Modal for Viewing Details -->
+    <div id="modal" class="modal">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <div class="modal-content">
+            <img id="modal-image">
+            <div class="modal-details">
+                <h2 id="modal-title"></h2>
+                <p id="modal-artist"></p>
+                <p id="modal-interpretation"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast"></div>
+
+    <script>
+        // Function to show toast notifications
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.innerText = message;
+            toast.className = 'show';
+            setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 3000);
+        }
+
+        // Function to show loader
+        function showLoader() {
+            document.body.classList.add('loading');
+        }
+
+        // Function to hide loader
+        function hideLoader() {
+            document.body.classList.remove('loading');
+        }
+
+        // Function to fetch and display a new painting
+        // Function to fetch and display a new painting
+        async function fetchNewPainting() {
+    showLoader();
+    try {
+        const response = await fetch('/refresh');
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        const painting = await response.json();
+
+        // Update artwork image
+        const artworkImg = document.getElementById('artwork-img');
+        artworkImg.src = painting.image_url;
+        artworkImg.alt = painting.title;
+
+        // Update artwork title and artist
+        document.getElementById('artwork-title').textContent = painting.title;
+        document.getElementById('artwork-artist').textContent = `By ${painting.artist} (${painting.dated})`;
+
+        // Immediately show interpretation without animation
+        const interpretation = document.getElementById('artwork-interpretation');
+        interpretation.innerHTML = painting.info;
+
+        // Force a style update
+        interpretation.style.display = 'none';
+        interpretation.offsetHeight; // Trigger a reflow
+        interpretation.style.display = 'block';
+
+        // Log computed styles
+        console.log(window.getComputedStyle(interpretation));
+
+        // Reset "Add to Favorites" button
+        const addButton = document.querySelector('.button-group .add-favorite-button');
+        addButton.disabled = false;
+        addButton.innerText = 'Add to Favorites ❤️';
+
+        
+    } catch (error) {
+        console.error('Failed to fetch new painting:', error);
+        showToast('Failed to load new artwork. Please try again.');
+    } finally {
+        hideLoader();
+    }
+}
+
+        // Function to add or remove current artwork from favorites
+        function toggleFavorite() {
+            const artworkData = {
+                artwork_url: document.getElementById('artwork-img').src,
+                title: document.getElementById('artwork-title').innerText,
+                artist: document.getElementById('artwork-artist').innerText,
+                interpretation: document.getElementById('artwork-interpretation').innerText
+            };
+
+            let favorites = JSON.parse(localStorage.getItem('favorites')) || [];
+            const addButton = document.querySelector('.button-group .add-favorite-button');
+
+            // Check if artwork is already in favorites
+            const existingIndex = favorites.findIndex(fav => fav.artwork_url === artworkData.artwork_url);
+            if (existingIndex === -1) {
+                // Add to favorites
+                favorites.push(artworkData);
+                localStorage.setItem('favorites', JSON.stringify(favorites));
+                showToast('Added to favorites!');
+                addButton.innerText = '❤️ in my museum';
+            } else {
+                // Remove from favorites
+                favorites.splice(existingIndex, 1);
+                localStorage.setItem('favorites', JSON.stringify(favorites));
+                showToast('Removed from favorites.');
+                addButton.innerText = 'Add to Favorites ❤️';
+            }
+        }
+
+        // Function to update the favorite button based on current artwork
+        function updateFavoriteButton(button, painting) {
+            const favorites = JSON.parse(localStorage.getItem('favorites')) || [];
+            const isFavorited = favorites.some(fav => fav.artwork_url === painting.image_url);
+            if (isFavorited) {
+                button.innerText = '❤️ in my museum';
+            } else {
+                button.innerText = 'Add to Favorites ❤️';
+            }
+        }
+
+        // Function to open the modal
+    // Function to open the modal
+function openModal(img) {
+    var modal = document.getElementById("modal");
+    var modalImg = document.getElementById("modal-image");
+    var modalTitle = document.getElementById("modal-title");
+    var modalArtist = document.getElementById("modal-artist");
+    var modalInterpretation = document.getElementById("modal-interpretation");
+    
+    // Get current artwork details
+    modalImg.src = document.getElementById('artwork-img').src;
+    modalTitle.innerText = document.getElementById('artwork-title').innerText;
+    modalArtist.innerText = document.getElementById('artwork-artist').innerText;
+    modalInterpretation.innerText = document.getElementById('artwork-interpretation').innerText;
+
+    modal.style.display = "block";
+    
+    // Store the current scroll position
+    modal.setAttribute('data-scroll-position', window.pageYOffset);
+    
+    // Prevent body scrolling when modal is open
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${window.pageYOffset}px`;
+    document.body.style.width = '100%';
+}
+
+function closeModal() {
+    var modal = document.getElementById("modal");
+    modal.style.display = "none";
+    
+    // Re-enable body scrolling when modal is closed
+    const scrollY = modal.getAttribute('data-scroll-position');
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.width = '';
+    window.scrollTo(0, parseInt(scrollY || '0'));
+}
+
+// Close modal when clicking outside the modal content
+window.addEventListener('click', function(event) {
+    var modal = document.getElementById('modal');
+    if (event.target == modal) {
+        closeModal();
+    }
+});
+
+        // Function to toggle dark mode
+        function toggleDarkMode() {
+            const body = document.body;
+            const darkModeToggle = document.getElementById('dark-mode-toggle');
+
+            if (body.classList.contains('dark-mode')) {
+                body.classList.remove('dark-mode');
+                body.classList.add('light-mode');
+                darkModeToggle.innerText = '🌙'; // Moon emoji
+                localStorage.setItem('theme', 'light');
+            } else {
+                body.classList.remove('light-mode');
+                body.classList.add('dark-mode');
+                darkModeToggle.innerText = '☀️'; // Sun emoji
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // Event listener for the dark mode toggle button
+        document.getElementById('dark-mode-toggle').addEventListener('click', toggleDarkMode);
+
+        // Initialize dark mode based on user preference
+        window.addEventListener('load', () => {
+            const darkModeToggle = document.getElementById('dark-mode-toggle');
+            const storedTheme = localStorage.getItem('theme');
+            if (storedTheme === 'light') {
+                document.body.classList.remove('dark-mode');
+                document.body.classList.add('light-mode');
+                darkModeToggle.innerText = '🌙'; // Moon emoji
+            } else {
+                document.body.classList.remove('light-mode');
+                document.body.classList.add('dark-mode');
+                darkModeToggle.innerText = '☀️'; // Sun emoji
+            }
+
+            // Check if current artwork is already in favorites
+            const addButton = document.querySelector('.button-group .add-favorite-button');
+            const currentArtwork = {
+                artwork_url: document.getElementById('artwork-img').src,
+                title: document.getElementById('artwork-title').innerText,
+                artist: document.getElementById('artwork-artist').innerText,
+                interpretation: document.getElementById('artwork-interpretation').innerText
+            };
+            updateFavoriteButton(addButton, currentArtwork);
+        });
+
+        // Close modal when clicking outside the modal content
+        window.onclick = function(event) {
+            const modal = document.getElementById('modal');
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+        
+    </script>
+</body>
+</html>
