@@ -125,10 +125,19 @@ const Modal = {
 };
 
 // ─── museum (artwork view) ───
+const LISTEN_ICONS = {
+  play: '<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>',
+  spinner: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 3a9 9 0 1 1-9 9"/></svg>',
+};
+
 const Museum = {
   current: null,
   prefetched: null,
   abortStream: null,
+  audio: null,
+  audioObjectUrl: null,
+  audioBusy: false,
   els: {},
 
   init() {
@@ -146,6 +155,9 @@ const Museum = {
       nextBtn: document.querySelector("[data-next-btn]"),
       shareBtn: document.querySelector("[data-share-btn]"),
       sourceBtn: document.querySelector("[data-source-btn]"),
+      listenBtn: document.querySelector("[data-listen-btn]"),
+      listenIcon: document.querySelector("[data-listen-icon]"),
+      listenLabel: document.querySelector("[data-listen-label]"),
       error: document.querySelector("[data-error]"),
     };
 
@@ -156,6 +168,7 @@ const Museum = {
     this.els.favBtn?.addEventListener("click", () => this.toggleFavorite());
     this.els.nextBtn?.addEventListener("click", () => this.loadNext());
     this.els.shareBtn?.addEventListener("click", () => this.share());
+    this.els.listenBtn?.addEventListener("click", () => this.toggleAudio());
     document.addEventListener("keydown", e => {
       if (e.target.matches("input, textarea")) return;
       if (e.key === "n" || e.key === "ArrowRight") this.loadNext();
@@ -214,6 +227,8 @@ const Museum = {
   async render(painting) {
     this.current = painting;
     this.abortPreviousStream();
+    this.resetAudio();
+    this.setListenState("waiting");
 
     this.els.title.textContent = painting.title;
     const byline = [painting.artist, painting.dated].filter(Boolean).join(" · ");
@@ -321,6 +336,7 @@ const Museum = {
               if (Favorites.has(id)) {
                 Favorites.add({ ...this.current });
               }
+              if (buffer) this.setListenState("idle");
             }
           } else if (parsed.event === "error") {
             cursor?.remove();
@@ -363,6 +379,107 @@ const Museum = {
         this.prefetched = p;
       }
     } catch { /* ignore */ }
+  },
+
+  setListenState(state) {
+    const btn = this.els.listenBtn;
+    if (!btn) return;
+    btn.classList.remove("is-loading", "is-playing");
+    btn.disabled = false;
+
+    switch (state) {
+      case "waiting":
+        btn.disabled = true;
+        this.els.listenIcon.innerHTML = LISTEN_ICONS.play;
+        this.els.listenLabel.textContent = "Listen";
+        break;
+      case "loading":
+        btn.classList.add("is-loading");
+        btn.disabled = true;
+        this.els.listenIcon.innerHTML = LISTEN_ICONS.spinner;
+        this.els.listenLabel.textContent = "Loading…";
+        break;
+      case "playing":
+        btn.classList.add("is-playing");
+        this.els.listenIcon.innerHTML = LISTEN_ICONS.pause;
+        this.els.listenLabel.textContent = "Pause";
+        break;
+      case "paused":
+        this.els.listenIcon.innerHTML = LISTEN_ICONS.play;
+        this.els.listenLabel.textContent = "Resume";
+        break;
+      case "idle":
+      default:
+        this.els.listenIcon.innerHTML = LISTEN_ICONS.play;
+        this.els.listenLabel.textContent = "Listen";
+        break;
+    }
+  },
+
+  resetAudio() {
+    if (this.audio) {
+      this.audio.pause();
+      this.audio.src = "";
+      this.audio = null;
+    }
+    if (this.audioObjectUrl) {
+      URL.revokeObjectURL(this.audioObjectUrl);
+      this.audioObjectUrl = null;
+    }
+    this.audioBusy = false;
+  },
+
+  async toggleAudio() {
+    if (this.audioBusy) return;
+
+    if (this.audio) {
+      if (this.audio.paused) {
+        this.audio.play().catch(() => Toast.show("Audio playback failed."));
+      } else {
+        this.audio.pause();
+      }
+      return;
+    }
+
+    if (!this.current?.interpretation) {
+      Toast.show("Still writing the interpretation…");
+      return;
+    }
+
+    this.audioBusy = true;
+    this.setListenState("loading");
+
+    try {
+      const res = await fetch(`/api/painting/${encodeURIComponent(this.current.id)}/audio`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Audio generation failed.");
+      }
+      const blob = await res.blob();
+      this.audioObjectUrl = URL.createObjectURL(blob);
+      const audio = new Audio(this.audioObjectUrl);
+      this.audio = audio;
+      audio.addEventListener("play", () => this.setListenState("playing"));
+      audio.addEventListener("pause", () => {
+        if (!audio.ended) this.setListenState("paused");
+      });
+      audio.addEventListener("ended", () => {
+        audio.currentTime = 0;
+        this.setListenState("idle");
+      });
+      audio.addEventListener("error", () => {
+        Toast.show("Audio playback failed.");
+        this.resetAudio();
+        this.setListenState("idle");
+      });
+      await audio.play();
+    } catch (e) {
+      Toast.show(e.message || "Couldn't play audio.");
+      this.resetAudio();
+      this.setListenState(this.current?.interpretation ? "idle" : "waiting");
+    } finally {
+      this.audioBusy = false;
+    }
   },
 
   updateFavoriteButton() {

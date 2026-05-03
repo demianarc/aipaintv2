@@ -27,19 +27,24 @@ MET_ASIAN_DEPT = 6       # Asian Art (includes paintings)
 UA = "Mozilla/5.0 (compatible; AIMuseumBot/1.0) Chrome/124"
 
 CACHE_MAX = 512
+AUDIO_CACHE_MAX = 64  # audio blobs are much larger than text, so cap tighter
 _painting_cache: "OrderedDict[str, dict]" = OrderedDict()
 _interp_cache: "OrderedDict[str, str]" = OrderedDict()
+_audio_cache: "OrderedDict[str, bytes]" = OrderedDict()
 _cache_lock = Lock()
 _object_ids: list[int] = []
 _object_ids_lock = Lock()
 
+ELEVENLABS_VOICE_ID = "VJwFZoxTZo5aI0IowiXA"
+ELEVENLABS_MODEL_ID = "eleven_multilingual_v2"
 
-def _cache_set(cache: OrderedDict, key: str, value):
+
+def _cache_set(cache: OrderedDict, key: str, value, max_size: int = CACHE_MAX):
     with _cache_lock:
         if key in cache:
             cache.move_to_end(key)
         cache[key] = value
-        while len(cache) > CACHE_MAX:
+        while len(cache) > max_size:
             cache.popitem(last=False)
 
 
@@ -264,6 +269,54 @@ def api_painting_by_id(object_id):
     if not painting:
         return jsonify({"error": "Artwork not found."}), 404
     return jsonify(painting)
+
+
+@app.route("/api/painting/<object_id>/audio")
+def api_audio(object_id):
+    cached_audio = _cache_get(_audio_cache, object_id)
+    if cached_audio is not None:
+        return Response(cached_audio, mimetype="audio/mpeg")
+
+    text = _cache_get(_interp_cache, object_id)
+    if not text:
+        return jsonify({"error": "Interpretation not ready yet."}), 409
+
+    api_key = os.getenv("ELEVENLABS_API_KEY")
+    if not api_key:
+        log.error("ELEVENLABS_API_KEY is not set")
+        return jsonify({"error": "Audio service not configured."}), 503
+
+    try:
+        r = requests.post(
+            f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}",
+            headers={
+                "xi-api-key": api_key,
+                "Content-Type": "application/json",
+                "Accept": "audio/mpeg",
+            },
+            json={
+                "text": text,
+                "model_id": ELEVENLABS_MODEL_ID,
+                "voice_settings": {
+                    "stability": 0.5,
+                    "similarity_boost": 0.75,
+                    "style": 0.0,
+                    "use_speaker_boost": True,
+                },
+            },
+            timeout=60,
+        )
+    except requests.RequestException as e:
+        log.warning("ElevenLabs request failed: %s", e)
+        return jsonify({"error": "Couldn't reach the audio service."}), 502
+
+    if r.status_code != 200:
+        log.warning("ElevenLabs returned %s: %s", r.status_code, r.text[:300])
+        return jsonify({"error": "Audio generation failed."}), 502
+
+    audio_bytes = r.content
+    _cache_set(_audio_cache, object_id, audio_bytes, max_size=AUDIO_CACHE_MAX)
+    return Response(audio_bytes, mimetype="audio/mpeg")
 
 
 @app.route("/api/painting/<object_id>/interpretation")
