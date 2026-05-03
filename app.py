@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("aimuseum")
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
+MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 MET_BASE = "https://collectionapi.metmuseum.org/public/collection/v1"
 MET_PAINTINGS_DEPT = 11  # European Paintings
