@@ -29,20 +29,20 @@ MET_ASIAN_DEPT = 6       # Asian Art (includes paintings)
 UA = "Mozilla/5.0 (compatible; AIMuseumBot/1.0) Chrome/124"
 
 CACHE_MAX = 512
-AUDIO_CACHE_MAX = 64  # audio blobs are much larger than text, so cap tighter
 SEARCH_CACHE_MAX = 64
 SEARCH_CACHE_TTL = 60 * 30  # 30 min — Met search is stable
 _painting_cache: "OrderedDict[str, dict]" = OrderedDict()
 _interp_cache: "OrderedDict[str, str]" = OrderedDict()
 _embellish_cache: "OrderedDict[str, dict]" = OrderedDict()
-_audio_cache: "OrderedDict[str, bytes]" = OrderedDict()
 _search_cache: "OrderedDict[str, tuple[float, list[int]]]" = OrderedDict()
 _cache_lock = Lock()
 _object_ids: list[int] = []
 _object_ids_lock = Lock()
 
 ELEVENLABS_VOICE_ID = "VJwFZoxTZo5aI0IowiXA"
-ELEVENLABS_MODEL_ID = "eleven_multilingual_v2"
+ELEVENLABS_MODEL_ID = "eleven_flash_v2_5"  # fastest model — needed to fit serverless timeouts
+ELEVENLABS_OUTPUT_FORMAT = "mp3_44100_64"
+MAX_TTS_CHARS = 4000
 
 # ─── Filters & quiz pools ────────────────────────────────────────────────────
 
@@ -523,29 +523,36 @@ def api_quiz_new():
     })
 
 
-@app.route("/api/painting/<object_id>/audio")
+@app.route("/api/painting/<object_id>/audio", methods=["GET", "POST"])
 def api_audio(object_id):
-    cached_audio = _cache_get(_audio_cache, object_id)
-    if cached_audio is not None:
-        return Response(cached_audio, mimetype="audio/mpeg")
-
-    text = _cache_get(_interp_cache, object_id)
+    text = None
+    if request.method == "POST":
+        payload = request.get_json(silent=True) or {}
+        text = (payload.get("text") or "").strip() or None
+    if not text:
+        # Falls through to in-memory cache (works on warm instances). On cold
+        # serverless instances the client should POST the text directly.
+        text = _cache_get(_interp_cache, object_id)
     if not text:
         return jsonify({"error": "Interpretation not ready yet."}), 409
+    if len(text) > MAX_TTS_CHARS:
+        text = text[:MAX_TTS_CHARS]
 
     api_key = os.getenv("ELEVENLABS_API_KEY")
     if not api_key:
         log.error("ELEVENLABS_API_KEY is not set")
         return jsonify({"error": "Audio service not configured."}), 503
 
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}/stream"
     try:
-        r = requests.post(
-            f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}",
+        upstream = requests.post(
+            url,
             headers={
                 "xi-api-key": api_key,
                 "Content-Type": "application/json",
                 "Accept": "audio/mpeg",
             },
+            params={"output_format": ELEVENLABS_OUTPUT_FORMAT},
             json={
                 "text": text,
                 "model_id": ELEVENLABS_MODEL_ID,
@@ -556,19 +563,36 @@ def api_audio(object_id):
                     "use_speaker_boost": True,
                 },
             },
-            timeout=60,
+            stream=True,
+            timeout=(10, 55),  # connect timeout, read timeout
         )
     except requests.RequestException as e:
         log.warning("ElevenLabs request failed: %s", e)
         return jsonify({"error": "Couldn't reach the audio service."}), 502
 
-    if r.status_code != 200:
-        log.warning("ElevenLabs returned %s: %s", r.status_code, r.text[:300])
+    if upstream.status_code != 200:
+        body = ""
+        try:
+            body = upstream.text[:300]
+        except Exception:
+            pass
+        upstream.close()
+        log.warning("ElevenLabs returned %s: %s", upstream.status_code, body)
         return jsonify({"error": "Audio generation failed."}), 502
 
-    audio_bytes = r.content
-    _cache_set(_audio_cache, object_id, audio_bytes, max_size=AUDIO_CACHE_MAX)
-    return Response(audio_bytes, mimetype="audio/mpeg")
+    def relay():
+        try:
+            for chunk in upstream.iter_content(chunk_size=4096):
+                if chunk:
+                    yield chunk
+        finally:
+            upstream.close()
+
+    return Response(
+        stream_with_context(relay()),
+        mimetype="audio/mpeg",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.route("/api/painting/<object_id>/interpretation")

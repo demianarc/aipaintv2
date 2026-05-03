@@ -551,7 +551,11 @@ const Museum = {
     this.setListenState("loading");
 
     try {
-      const res = await fetch(`/api/painting/${encodeURIComponent(this.current.id)}/audio`);
+      const res = await fetch(`/api/painting/${encodeURIComponent(this.current.id)}/audio`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: this.current.interpretation }),
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Audio generation failed.");
