@@ -1,176 +1,297 @@
-from flask import Flask, render_template
-from flask import jsonify
-import requests
-from bs4 import BeautifulSoup
-from openai import OpenAI
-import random
-import os
 import json
-from flask import make_response
-from flask import request
-import ijson
 import logging
+import os
+import random
+from collections import OrderedDict
+from threading import Lock
+
+import requests
 from dotenv import load_dotenv
-load_dotenv() 
+from flask import Flask, Response, jsonify, render_template, request, stream_with_context
+from openai import OpenAI
 
-
+load_dotenv()
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("aimuseum")
 
-# Load OpenAI API key from environment variable
-client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-API_ENDPOINT = "https://api.openai.com/v1/chat/completions"
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 
-def scrape_painting():
-    api_key = os.getenv("HARVARD_API_KEY")
-    fields = 'primaryimageurl,title,people,dated'
-    url = f"https://api.harvardartmuseums.org/object?apikey={api_key}&size=100&sort=random&classification=Paintings&hasimage=1&sortorder=asc&fields={fields}"
+MET_BASE = "https://collectionapi.metmuseum.org/public/collection/v1"
+MET_PAINTINGS_DEPT = 11  # European Paintings
+MET_AMERICAN_DEPT = 21   # American Paintings
+MET_ASIAN_DEPT = 6       # Asian Art (includes paintings)
 
-    response = requests.get(url)
-    logging.info(f"URL: {url}")
-    logging.info(f"Response status code: {response.status_code}")
+UA = "Mozilla/5.0 (compatible; AIMuseumBot/1.0) Chrome/124"
 
-    if response.status_code != 200:
-        logging.error("Failed to fetch painting information.")
+CACHE_MAX = 512
+_painting_cache: "OrderedDict[str, dict]" = OrderedDict()
+_interp_cache: "OrderedDict[str, str]" = OrderedDict()
+_cache_lock = Lock()
+_object_ids: list[int] = []
+_object_ids_lock = Lock()
+
+
+def _cache_set(cache: OrderedDict, key: str, value):
+    with _cache_lock:
+        if key in cache:
+            cache.move_to_end(key)
+        cache[key] = value
+        while len(cache) > CACHE_MAX:
+            cache.popitem(last=False)
+
+
+def _cache_get(cache: OrderedDict, key: str):
+    with _cache_lock:
+        if key in cache:
+            cache.move_to_end(key)
+            return cache[key]
+    return None
+
+
+def _load_painting_ids() -> list[int]:
+    """Pull and merge painting object-IDs from a few Met departments."""
+    global _object_ids
+    with _object_ids_lock:
+        if _object_ids:
+            return _object_ids
+        merged: set[int] = set()
+        for dept in (MET_PAINTINGS_DEPT, MET_AMERICAN_DEPT):
+            try:
+                r = requests.get(
+                    f"{MET_BASE}/objects",
+                    params={"departmentIds": dept},
+                    headers={"User-Agent": UA},
+                    timeout=15,
+                )
+                r.raise_for_status()
+                ids = r.json().get("objectIDs") or []
+                merged.update(ids)
+            except (requests.RequestException, ValueError) as e:
+                log.warning("Met department %s list failed: %s", dept, e)
+        _object_ids = list(merged)
+        random.shuffle(_object_ids)
+        log.info("Loaded %d painting IDs from the Met", len(_object_ids))
+        return _object_ids
+
+
+def _normalize_record(rec: dict) -> dict | None:
+    image = rec.get("primaryImage") or rec.get("primaryImageSmall")
+    if not image:
         return None
-
-    data = response.json()
-    if not data['records']:
-        logging.error("No records found.")
+    if not rec.get("isPublicDomain", True):
         return None
-
-    painting = random.choice(data['records'])
-    image_url = painting.get("primaryimageurl")
-    title = painting.get("title")
-    artist_names = [person.get("name", "Unknown artist") for person in painting.get("people", [])]
-    artist = ", ".join(artist_names) if artist_names else "Unknown artist"
-    dated = painting.get("dated", "Not available")
-    
-    # Log the fetched image URL
-    logging.info(f"Fetched image URL: {image_url}")
-
     return {
-        "image_url": image_url,
-        "title": title,
-        "artist": artist,
-        "dated": dated
+        "id": str(rec.get("objectID")),
+        "title": rec.get("title") or "Untitled",
+        "artist": rec.get("artistDisplayName") or "Unknown artist",
+        "dated": rec.get("objectDate") or "Date unknown",
+        "century": None,
+        "culture": rec.get("culture") or rec.get("artistNationality"),
+        "medium": rec.get("medium"),
+        "classification": rec.get("classification"),
+        "department": rec.get("department"),
+        "credit": rec.get("creditLine"),
+        "image_url": image,
+        "image_url_small": rec.get("primaryImageSmall") or image,
+        "source_url": rec.get("objectURL"),
     }
 
 
-# Updated generate_artwork_info function with full functionality and logging
-def generate_artwork_info(artist, title, dated, image_url):
-    logging.info("Starting generate_artwork_info")
-    logging.info(f"Sending image URL to OpenAI: {image_url}")
-    
-    # Initialize variables to ensure they have a value even if the subsequent API calls fail
-    visual_text = "Visual description not available"
-    text = "Textual interpretation not available"
-    combined_text = ""
+def _fetch_met_object(object_id: int | str) -> dict | None:
+    try:
+        r = requests.get(
+            f"{MET_BASE}/objects/{object_id}",
+            headers={"User-Agent": UA},
+            timeout=15,
+        )
+        if r.status_code == 404:
+            return None
+        r.raise_for_status()
+        return r.json()
+    except (requests.RequestException, ValueError) as e:
+        log.warning("Met object %s fetch failed: %s", object_id, e)
+        return None
+
+
+def fetch_random_painting(retries: int = 8) -> dict | None:
+    ids = _load_painting_ids()
+    if not ids:
+        return None
+    for _ in range(retries):
+        candidate_id = random.choice(ids)
+        rec = _fetch_met_object(candidate_id)
+        if not rec:
+            continue
+        painting = _normalize_record(rec)
+        if not painting:
+            continue
+        _cache_set(_painting_cache, painting["id"], painting)
+        return painting
+    return None
+
+
+def fetch_painting_by_id(object_id: str) -> dict | None:
+    cached = _cache_get(_painting_cache, object_id)
+    if cached:
+        return cached
+    rec = _fetch_met_object(object_id)
+    if not rec:
+        return None
+    painting = _normalize_record(rec)
+    if not painting:
+        return None
+    _cache_set(_painting_cache, painting["id"], painting)
+    return painting
+
+
+def build_messages(painting: dict) -> list:
+    title = painting["title"]
+    artist = painting["artist"]
+    dated = painting["dated"]
+    medium = painting.get("medium") or ""
+    medium_line = f" The medium is {medium}." if medium else ""
+
+    system_prompt = (
+        "You are an art historian writing for an intelligent general audience. "
+        "You weave together what is visually present in the work with the era it was made, "
+        "the artist's perspective, and the emotional charge of the piece. "
+        "Be vivid but never flowery. Avoid clichés. Avoid listing features mechanically. "
+        "Write a single flowing paragraph of 4 to 6 sentences."
+    )
+    user_prompt = (
+        f'Look closely at "{title}" by {artist} ({dated}).{medium_line} '
+        "First describe what is actually in the image — composition, light, gesture, mood — "
+        "then carry that into the historical and emotional context. One paragraph."
+    )
+
+    return [
+        {"role": "system", "content": system_prompt},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": user_prompt},
+                {"type": "image_url", "image_url": {"url": painting["image_url"]}},
+            ],
+        },
+    ]
+
+
+def stream_interpretation(painting: dict):
+    cached = _cache_get(_interp_cache, painting["id"])
+    if cached:
+        for chunk in _chunk_text(cached, size=20):
+            yield _sse("token", {"text": chunk})
+        yield _sse("done", {"text": cached})
+        return
 
     try:
-        # Adjusted request to include the image URL correctly
-        visual_response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": "Describe this artwork, focusing on its most notable visual aspects. Be short and concise, max 2 sentences"},
-                        {"type": "image_url", "image_url": {"url": image_url}},
-                    ],
-                }
-            ],
-            max_tokens=150
+        completion = client.chat.completions.create(
+            model=MODEL,
+            messages=build_messages(painting),
+            max_tokens=400,
+            stream=True,
         )
-        # Assume successful response and update visual_text
-        visual_text = visual_response.choices[0].message.content.strip()
-
-        prompt = f"The artwork '{title}' by {artist}, created in {dated}, features {visual_text}. What historical narratives and emotions might these details suggest? Be short, touching, and concise. Can you discuss the emotional undertones and historical context of this piece, reflecting the era and the artist's own journey? (max 3 sentences)."
-        
-        text_response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a knowledgeable and articulate art historian capable of deep insights into artworks."
-                },
-                {
-                    "role": "system",
-                    "content": prompt,
-                }
-            ],
-            max_tokens=230
-        )
-        # Update text based on successful response
-        text = text_response.choices[0].message.content.strip()
-        combined_text = f"{visual_text} {text}"
-
     except Exception as e:
-        logging.error(f"An error occurred in generate_artwork_info: {e}")
+        log.exception("OpenAI request failed")
+        yield _sse("error", {"message": "The interpretation couldn't be generated."})
+        return
 
-    # Logging after ensuring variables are initialized and potentially updated
-    logging.info(f"Visual Description from GPT-4: {visual_text}")
-    logging.info(f"Textual Interpretation from GPT-3.5: {text}")
-    logging.info(f"Combined Artwork Info: {combined_text}")
+    full = []
+    try:
+        for event in completion:
+            if not event.choices:
+                continue
+            delta = event.choices[0].delta
+            piece = getattr(delta, "content", None)
+            if piece:
+                full.append(piece)
+                yield _sse("token", {"text": piece})
+    except Exception:
+        log.exception("OpenAI stream interrupted")
+        yield _sse("error", {"message": "The connection to the model dropped."})
+        return
 
-    return combined_text.strip()
+    text = "".join(full).strip()
+    if text:
+        _cache_set(_interp_cache, painting["id"], text)
+    yield _sse("done", {"text": text})
 
 
+def _chunk_text(text: str, size: int = 20):
+    for i in range(0, len(text), size):
+        yield text[i : i + size]
 
-@app.route('/')
+
+def _sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+@app.route("/")
 def landing_page():
-    return render_template('landing.html')
+    return render_template("landing.html")
 
-@app.route('/app')
-def painting_of_the_day():
-    painting = scrape_painting()
-    if not painting:
-        painting_info = "Information could not be generated due to an error."
-    else:
-        painting_info = generate_artwork_info(painting["artist"], painting["title"], painting["dated"], painting["image_url"])
-        logging.info(f"Rendering image URL to template: {painting['image_url']}")
 
-    painting["info"] = painting_info if painting_info else "Information could not be generated."
-    return render_template('index.html', painting=painting, hide_loader=True)
+@app.route("/app")
+def museum():
+    object_id = request.args.get("id")
+    return render_template("index.html", initial_id=object_id)
 
-@app.route('/about')
+
+@app.route("/favorites")
+def favorites():
+    return render_template("favorites.html")
+
+
+@app.route("/about")
 def about():
-    return render_template('about.html')
+    return render_template("about.html")
 
 
-@app.route('/refresh', methods=['GET'])
-def refresh():
-    painting = scrape_painting()
+@app.route("/api/painting/random")
+def api_random_painting():
+    painting = fetch_random_painting()
     if not painting:
-        return jsonify({"error": "No painting available"})
-    painting_info = generate_artwork_info(painting["artist"], painting["title"], painting["dated"], painting["image_url"])
-    painting["info"] = painting_info
+        return jsonify({"error": "Could not fetch a painting right now."}), 502
     return jsonify(painting)
+
+
+@app.route("/api/painting/<object_id>")
+def api_painting_by_id(object_id):
+    painting = fetch_painting_by_id(object_id)
+    if not painting:
+        return jsonify({"error": "Artwork not found."}), 404
+    return jsonify(painting)
+
+
+@app.route("/api/painting/<object_id>/interpretation")
+def api_interpretation(object_id):
+    painting = fetch_painting_by_id(object_id)
+    if not painting:
+        return jsonify({"error": "Artwork not found."}), 404
+
+    headers = {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+    }
+    return Response(
+        stream_with_context(stream_interpretation(painting)),
+        headers=headers,
+    )
 
 
 @app.after_request
 def add_caching_headers(response):
-    # Preload the stylesheet
-    if request.path == '/':
-        response.headers.add('Link', '</static/css/style.css>; rel=preload; as=style')
-
-    # Cache control for static resources
-    if request.path.startswith('/static'):
-        response.headers['Cache-Control'] = 'public, max-age=31536000'
-    elif request.endpoint != 'refresh':
-        # Cache dynamic content for a shorter time
-        response.headers['Cache-Control'] = 'public, max-age=36000'
-    else:
-        # No caching for the API responses that fetch new paintings
-        response.headers['Cache-Control'] = 'no-store'
+    if request.path.startswith("/static"):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    elif request.path.startswith("/api/painting") and "interpretation" not in request.path:
+        response.headers["Cache-Control"] = "no-store"
     return response
-        # No
 
-@app.route('/favorites')
-def favorites():
-    return render_template('favorites.html')
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5001))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, debug=os.getenv("FLASK_DEBUG") == "1")
