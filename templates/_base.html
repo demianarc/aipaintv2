@@ -22,6 +22,7 @@
     </a>
     <div class="nav-links">
       <a href="{{ url_for('museum') }}" class="nav-link {% if page == 'museum' %}is-active{% endif %}">Museum</a>
+      <a href="{{ url_for('quiz_page') }}" class="nav-link {% if page == 'quiz' %}is-active{% endif %}">Quiz</a>
       <a href="{{ url_for('favorites') }}" class="nav-link {% if page == 'favorites' %}is-active{% endif %}">Favorites</a>
       <a href="{{ url_for('about') }}" class="nav-link {% if page == 'about' %}is-active{% endif %}">About</a>
       <button type="button" class="theme-toggle" data-theme-toggle aria-label="Toggle theme"></button>

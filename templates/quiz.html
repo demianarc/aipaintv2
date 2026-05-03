@@ -1,0 +1,45 @@
+{% extends "_base.html" %}
+{% set page = 'quiz' %}
+{% block title %}Quiz — The AI Museum{% endblock %}
+
+{% block content %}
+<main class="page quiz" data-quiz>
+  <header class="page-header">
+    <p class="page-eyebrow">A small game</p>
+    <h1 class="page-title">Can you read a painting?</h1>
+    <p class="page-lede">No googling. Trust your eye.</p>
+  </header>
+
+  <div class="quiz-modes" role="tablist">
+    <button type="button" class="quiz-mode is-active" data-mode="century">Guess the century</button>
+    <button type="button" class="quiz-mode" data-mode="artist">Guess the artist</button>
+    <button type="button" class="quiz-mode" data-mode="culture">Guess the culture</button>
+  </div>
+
+  <p class="quiz-score" data-score>
+    Score · <strong data-score-correct>0</strong> right of <strong data-score-total>0</strong>
+  </p>
+
+  <div class="quiz-stage">
+    <div class="artwork-image-wrap is-loading" data-quiz-image-wrap>
+      <img class="artwork-image" data-quiz-image alt="">
+    </div>
+
+    <div class="quiz-panel">
+      <p class="quiz-prompt" data-quiz-prompt>Loading a painting…</p>
+      <div class="quiz-options" data-quiz-options></div>
+      <p class="quiz-result" data-quiz-result></p>
+      <div class="artwork-actions">
+        <button type="button" class="action is-primary" data-quiz-next>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <span>Next painting</span>
+        </button>
+        <a class="action" data-quiz-source target="_blank" rel="noopener noreferrer" style="display: none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>
+          <span>The Met</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}

@@ -131,6 +131,31 @@ const LISTEN_ICONS = {
   spinner: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 3a9 9 0 1 1-9 9"/></svg>',
 };
 
+// ─── filter bar ───
+const Filters = {
+  bar: null,
+  selects: [],
+  init(onChange) {
+    this.bar = document.querySelector("[data-filter-bar]");
+    if (!this.bar) return;
+    this.selects = [...this.bar.querySelectorAll("[data-filter]")];
+    this.selects.forEach(sel => sel.addEventListener("change", () => onChange()));
+    const clear = this.bar.querySelector("[data-filter-clear]");
+    clear?.addEventListener("click", () => {
+      this.selects.forEach(s => (s.value = ""));
+      onChange();
+    });
+  },
+  toQueryString() {
+    const params = new URLSearchParams();
+    this.selects.forEach(s => {
+      if (s.value) params.append(s.name, s.value);
+    });
+    const qs = params.toString();
+    return qs ? `?${qs}` : "";
+  }
+};
+
 const Museum = {
   current: null,
   prefetched: null,
@@ -138,6 +163,7 @@ const Museum = {
   audio: null,
   audioObjectUrl: null,
   audioBusy: false,
+  embellishToken: 0,
   els: {},
 
   init() {
@@ -151,6 +177,7 @@ const Museum = {
       byline: document.querySelector("[data-byline]"),
       tags: document.querySelector("[data-tags]"),
       interp: document.querySelector("[data-interpretation]"),
+      pullQuote: document.querySelector("[data-pull-quote]"),
       favBtn: document.querySelector("[data-fav-btn]"),
       nextBtn: document.querySelector("[data-next-btn]"),
       shareBtn: document.querySelector("[data-share-btn]"),
@@ -160,6 +187,8 @@ const Museum = {
       listenLabel: document.querySelector("[data-listen-label]"),
       error: document.querySelector("[data-error]"),
     };
+
+    Filters.init(() => this.loadRandom({ resetPrefetch: true }));
 
     this.els.img.addEventListener("click", () => {
       if (this.current) Modal.open(this.current.image_url, this.current.title);
@@ -183,7 +212,8 @@ const Museum = {
     }
   },
 
-  async loadRandom() {
+  async loadRandom({ resetPrefetch = false } = {}) {
+    if (resetPrefetch) this.prefetched = null;
     if (this.prefetched) {
       const next = this.prefetched;
       this.prefetched = null;
@@ -192,7 +222,7 @@ const Museum = {
       this.prefetchNext();
       return;
     }
-    await this.fetchAndRender("/api/painting/random");
+    await this.fetchAndRender(`/api/painting/random${Filters.toQueryString()}`);
   },
 
   async loadById(id) {
@@ -228,6 +258,7 @@ const Museum = {
     this.current = painting;
     this.abortPreviousStream();
     this.resetAudio();
+    this.resetEmbellishment();
     this.setListenState("waiting");
 
     this.els.title.textContent = painting.title;
@@ -337,6 +368,7 @@ const Museum = {
                 Favorites.add({ ...this.current });
               }
               if (buffer) this.setListenState("idle");
+              this.fetchEmbellishment(id, buffer);
             }
           } else if (parsed.event === "error") {
             cursor?.remove();
@@ -371,7 +403,7 @@ const Museum = {
   async prefetchNext() {
     if (this.prefetched) return;
     try {
-      const res = await fetch("/api/painting/random");
+      const res = await fetch(`/api/painting/random${Filters.toQueryString()}`);
       if (res.ok) {
         const p = await res.json();
         const img = new Image();
@@ -414,6 +446,75 @@ const Museum = {
         this.els.listenLabel.textContent = "Listen";
         break;
     }
+  },
+
+  resetEmbellishment() {
+    this.embellishToken += 1;
+    if (this.els.pullQuote) {
+      this.els.pullQuote.hidden = true;
+      this.els.pullQuote.textContent = "";
+      this.els.pullQuote.classList.remove("is-visible");
+    }
+    if (this.els.interp) {
+      this.els.interp.classList.remove("is-embellished");
+    }
+  },
+
+  async fetchEmbellishment(id, fullText) {
+    const token = ++this.embellishToken;
+    try {
+      const res = await fetch(`/api/painting/${encodeURIComponent(id)}/embellish`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (token !== this.embellishToken) return;
+      if (!this.current || this.current.id !== id) return;
+      this.applyEmbellishment(data, fullText);
+    } catch { /* fail silently — embellishment is decorative */ }
+  },
+
+  applyEmbellishment({ pull_quote, highlights }, baseText) {
+    if (!this.els.interp) return;
+    if (Array.isArray(highlights) && highlights.length) {
+      const html = this.wrapHighlights(baseText || this.els.interp.textContent, highlights);
+      this.els.interp.innerHTML = html;
+      this.els.interp.classList.add("is-embellished");
+    }
+    if (pull_quote && this.els.pullQuote) {
+      this.els.pullQuote.textContent = pull_quote;
+      this.els.pullQuote.hidden = false;
+      requestAnimationFrame(() => this.els.pullQuote.classList.add("is-visible"));
+    }
+  },
+
+  wrapHighlights(text, phrases) {
+    const escapeHTML = s => String(s).replace(/[&<>"']/g, c =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const escapeRE = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    const used = [];
+    const tokens = []; // {start, end, phrase}
+    for (const raw of phrases) {
+      const phrase = String(raw || "").trim();
+      if (!phrase) continue;
+      const re = new RegExp(escapeRE(phrase), "i");
+      const m = re.exec(text);
+      if (!m) continue;
+      const start = m.index, end = m.index + m[0].length;
+      if (used.some(([s, e]) => start < e && end > s)) continue;
+      used.push([start, end]);
+      tokens.push({ start, end, value: text.slice(start, end) });
+    }
+    tokens.sort((a, b) => a.start - b.start);
+
+    let out = "";
+    let cursor = 0;
+    for (const t of tokens) {
+      out += escapeHTML(text.slice(cursor, t.start));
+      out += `<mark class="highlight">${escapeHTML(t.value)}</mark>`;
+      cursor = t.end;
+    }
+    out += escapeHTML(text.slice(cursor));
+    return out;
   },
 
   resetAudio() {
@@ -614,6 +715,148 @@ const FavoritesPage = {
   }
 };
 
+// ─── quiz ───
+const Quiz = {
+  KEY: "aim:quiz:v1",
+  PROMPTS: {
+    century: "In which century was this painted?",
+    artist: "Who painted this?",
+    culture: "From which culture does this come?",
+  },
+  PRAISE: {
+    century: ["A keen eye.", "You read the era.", "Beautifully placed."],
+    artist: ["A connoisseur.", "You know the hand.", "Their signature is unmistakable to you."],
+    culture: ["You feel the place.", "A traveler's eye.", "Right at the source."],
+  },
+  mode: "century",
+  current: null,
+  answered: false,
+  els: {},
+
+  init() {
+    if (!document.querySelector("[data-quiz]")) return;
+    this.els = {
+      modes: [...document.querySelectorAll(".quiz-mode")],
+      imgWrap: document.querySelector("[data-quiz-image-wrap]"),
+      img: document.querySelector("[data-quiz-image]"),
+      prompt: document.querySelector("[data-quiz-prompt]"),
+      options: document.querySelector("[data-quiz-options]"),
+      result: document.querySelector("[data-quiz-result]"),
+      next: document.querySelector("[data-quiz-next]"),
+      source: document.querySelector("[data-quiz-source]"),
+      scoreCorrect: document.querySelector("[data-score-correct]"),
+      scoreTotal: document.querySelector("[data-score-total]"),
+    };
+
+    this.els.modes.forEach(btn => {
+      btn.addEventListener("click", () => {
+        this.els.modes.forEach(b => b.classList.remove("is-active"));
+        btn.classList.add("is-active");
+        this.mode = btn.dataset.mode;
+        this.loadQuestion();
+      });
+    });
+
+    this.els.next.addEventListener("click", () => this.loadQuestion());
+    this.els.img.addEventListener("click", () => {
+      if (this.current) Modal.open(this.current.image_url, this.current.title);
+    });
+
+    this.renderScore();
+    this.loadQuestion();
+  },
+
+  getScore() {
+    try { return JSON.parse(localStorage.getItem(this.KEY)) || { correct: 0, total: 0 }; }
+    catch { return { correct: 0, total: 0 }; }
+  },
+  saveScore(s) { localStorage.setItem(this.KEY, JSON.stringify(s)); this.renderScore(); },
+  renderScore() {
+    const s = this.getScore();
+    this.els.scoreCorrect.textContent = s.correct;
+    this.els.scoreTotal.textContent = s.total;
+  },
+
+  async loadQuestion() {
+    this.answered = false;
+    this.els.prompt.textContent = this.PROMPTS[this.mode];
+    this.els.options.innerHTML = "";
+    this.els.result.textContent = "";
+    this.els.result.classList.remove("is-visible", "is-correct", "is-wrong");
+    this.els.imgWrap.classList.add("is-loading");
+    this.els.img.classList.remove("is-loaded");
+    this.els.source.style.display = "none";
+
+    try {
+      const res = await fetch(`/api/quiz/new?mode=${this.mode}`);
+      if (!res.ok) {
+        Toast.show("Couldn't load a quiz painting. Try again.");
+        return;
+      }
+      const q = await res.json();
+      this.current = q;
+
+      await Museum.loadImage(q.image_url);
+      this.els.img.src = q.image_url;
+      this.els.img.alt = q.title || "";
+      this.els.imgWrap.classList.remove("is-loading");
+      this.els.img.classList.add("is-loaded");
+
+      if (q.source_url) {
+        this.els.source.href = q.source_url;
+        this.els.source.style.display = "";
+      }
+
+      q.options.forEach((opt, i) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "quiz-option";
+        btn.textContent = opt;
+        btn.style.transitionDelay = `${i * 60}ms`;
+        btn.addEventListener("click", () => this.answer(btn, opt));
+        this.els.options.appendChild(btn);
+      });
+      requestAnimationFrame(() => {
+        this.els.options.querySelectorAll(".quiz-option").forEach(b => b.classList.add("is-visible"));
+      });
+    } catch {
+      Toast.show("Network error.");
+    }
+  },
+
+  answer(button, choice) {
+    if (this.answered) return;
+    this.answered = true;
+
+    const correct = this.current.correct;
+    const score = this.getScore();
+    score.total += 1;
+
+    this.els.options.querySelectorAll(".quiz-option").forEach(b => {
+      b.disabled = true;
+      if (b.textContent === correct) b.classList.add("is-correct");
+      if (b === button && choice !== correct) b.classList.add("is-wrong");
+    });
+
+    if (choice === correct) {
+      score.correct += 1;
+      const lines = this.PRAISE[this.mode] || ["Right."];
+      this.els.result.textContent = lines[Math.floor(Math.random() * lines.length)];
+      this.els.result.classList.add("is-visible", "is-correct");
+    } else {
+      this.els.result.innerHTML =
+        `Not quite. <em>${this.escape(this.current.title)}</em> — by ${this.escape(this.current.artist)}, ${this.escape(this.current.dated)}.`;
+      this.els.result.classList.add("is-visible", "is-wrong");
+    }
+    this.saveScore(score);
+  },
+
+  escape(s) {
+    return String(s || "").replace(/[&<>"']/g, c =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+};
+
 // ─── boot ───
 document.addEventListener("DOMContentLoaded", () => {
   Theme.init();
@@ -621,4 +864,5 @@ document.addEventListener("DOMContentLoaded", () => {
   Modal.init();
   Museum.init();
   FavoritesPage.init();
+  Quiz.init();
 });
