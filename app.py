@@ -71,7 +71,7 @@ def generate_artwork_info(artist, title, dated, image_url):
     try:
         # Adjusted request to include the image URL correctly
         visual_response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-5.4-mini",
             messages=[
                 {
                     "role": "user",
@@ -89,7 +89,7 @@ def generate_artwork_info(artist, title, dated, image_url):
         prompt = f"The artwork '{title}' by {artist}, created in {dated}, features {visual_text}. What historical narratives and emotions might these details suggest? Be short, touching, and concise. Can you discuss the emotional undertones and historical context of this piece, reflecting the era and the artist's own journey? (max 3 sentences)."
         
         text_response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-5.4-mini",
             messages=[
                 {
                     "role": "system",
