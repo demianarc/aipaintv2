@@ -56,29 +56,27 @@ def _cache_get(cache: OrderedDict, key: str):
     return None
 
 
+_IDS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "met_painting_ids.json")
+
+
 def _load_painting_ids() -> list[int]:
-    """Pull and merge painting object-IDs from a few Met departments."""
+    """Load pre-fetched Met painting object IDs from the bundled JSON file.
+
+    Why: fetching the dept lists at cold start blew Vercel's function timeout.
+    The IDs change rarely; refresh the file with scripts/refresh_met_ids.py.
+    """
     global _object_ids
     with _object_ids_lock:
         if _object_ids:
             return _object_ids
-        merged: set[int] = set()
-        for dept in (MET_PAINTINGS_DEPT, MET_AMERICAN_DEPT):
-            try:
-                r = requests.get(
-                    f"{MET_BASE}/objects",
-                    params={"departmentIds": dept},
-                    headers={"User-Agent": UA},
-                    timeout=15,
-                )
-                r.raise_for_status()
-                ids = r.json().get("objectIDs") or []
-                merged.update(ids)
-            except (requests.RequestException, ValueError) as e:
-                log.warning("Met department %s list failed: %s", dept, e)
-        _object_ids = list(merged)
-        random.shuffle(_object_ids)
-        log.info("Loaded %d painting IDs from the Met", len(_object_ids))
+        try:
+            with open(_IDS_FILE, "r") as f:
+                _object_ids = list(json.load(f))
+            random.shuffle(_object_ids)
+            log.info("Loaded %d painting IDs from %s", len(_object_ids), _IDS_FILE)
+        except (OSError, ValueError) as e:
+            log.error("Failed to load painting IDs: %s", e)
+            _object_ids = []
         return _object_ids
 
 
@@ -110,7 +108,7 @@ def _fetch_met_object(object_id: int | str) -> dict | None:
         r = requests.get(
             f"{MET_BASE}/objects/{object_id}",
             headers={"User-Agent": UA},
-            timeout=15,
+            timeout=6,
         )
         if r.status_code == 404:
             return None
