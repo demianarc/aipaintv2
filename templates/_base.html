@@ -3,20 +3,51 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0e0e10">
-  <title>{% block title %}The AI Museum{% endblock %}</title>
-  <meta name="description" content="A daily encounter with a painting from the Harvard Art Museums, interpreted by AI.">
+  <meta name="theme-color" content="#0e0e10" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f5f2ea" media="(prefers-color-scheme: light)">
+  <title>{% block title %}The AI Museum — masterpieces decoded by an AI art historian{% endblock %}</title>
+  <meta name="description" content="{% block description %}A daily encounter with a painting from the world's great collections, interpreted by AI. Stream-written commentary, audio narration, and a quiz — free, no account.{% endblock %}">
+  <meta name="keywords" content="AI art, art history, museum, paintings, art interpretation, The Met, art education, AI museum, online museum, art appreciation">
+  <meta name="author" content="Dylan Bristot">
+  <link rel="canonical" href="{% block canonical %}https://theaimuseum.com{{ request.path }}{% endblock %}">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{% block og_title %}The AI Museum — masterpieces decoded{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}A painting a day, read aloud by an AI art historian. Free, no account.{% endblock %}">
+  <meta property="og:image" content="{% block og_image %}https://images.metmuseum.org/CRDImages/ep/web-large/DP-42549-001.jpg{% endblock %}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{% block tw_title %}The AI Museum{% endblock %}">
+  <meta name="twitter:description" content="A painting a day, read aloud by AI.">
+
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://images.metmuseum.org" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "The AI Museum",
+    "url": "https://theaimuseum.com",
+    "description": "A daily encounter with a painting, interpreted by AI.",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://theaimuseum.com/app?id={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
   {% block head_extra %}{% endblock %}
 </head>
 <body>
   {% set page = page|default('') %}
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+
   <nav class="nav">
-    <a href="{{ url_for('landing_page') }}" class="nav-brand">
+    <a href="{{ url_for('landing_page') }}" class="nav-brand" aria-label="The AI Museum — home">
       <span class="nav-brand-mark"></span>
       <span>The AI Museum</span>
     </a>

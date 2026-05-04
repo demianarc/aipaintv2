@@ -857,6 +857,119 @@ const Quiz = {
   }
 };
 
+// ─── landing animations: scroll progress, blur-fade reveals, number ticker, parallax ───
+const Landing = {
+  init() {
+    this.scrollProgress();
+    this.reveal();
+    this.numberTickers();
+    this.heroParallax();
+  },
+
+  scrollProgress() {
+    const bar = document.querySelector("[data-scroll-progress]");
+    if (!bar) return;
+    const update = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const pct = max > 0 ? (window.scrollY / max) * 100 : 0;
+      bar.style.width = `${Math.min(100, Math.max(0, pct))}%`;
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update, { passive: true });
+  },
+
+  reveal() {
+    const targets = document.querySelectorAll("[data-reveal]");
+    if (!targets.length) return;
+    if (!("IntersectionObserver" in window) || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      targets.forEach(el => el.classList.add("is-revealed"));
+      return;
+    }
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add("is-revealed");
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -8% 0px" });
+    targets.forEach(el => io.observe(el));
+  },
+
+  numberTickers() {
+    const els = document.querySelectorAll("[data-counter]");
+    if (!els.length) return;
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const format = (n) => {
+      if (n >= 1000) return n.toLocaleString();
+      return String(n);
+    };
+
+    const animate = (el) => {
+      const target = parseFloat(el.dataset.counter) || 0;
+      const suffix = el.dataset.suffix || "";
+      const dur = 1600;
+      if (reduced || target === 0) {
+        el.textContent = format(target) + suffix;
+        return;
+      }
+      const start = performance.now();
+      const tick = (now) => {
+        const t = Math.min(1, (now - start) / dur);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const value = Math.round(target * eased);
+        el.textContent = format(value) + suffix;
+        if (t < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    };
+
+    if (!("IntersectionObserver" in window)) {
+      els.forEach(animate);
+      return;
+    }
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          animate(e.target);
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.4 });
+    els.forEach(el => io.observe(el));
+  },
+
+  heroParallax() {
+    const aurora = document.querySelector(".hero-aurora");
+    const orbits = document.querySelectorAll(".orbit");
+    if (!aurora && !orbits.length) return;
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const hero = document.querySelector(".hero");
+    if (!hero) return;
+
+    let ticking = false;
+    hero.addEventListener("mousemove", (e) => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const r = hero.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width - 0.5;
+        const y = (e.clientY - r.top) / r.height - 0.5;
+        if (aurora) aurora.style.transform = `translate(${x * 18}px, ${y * 18}px)`;
+        orbits.forEach((o, i) => {
+          const depth = (i + 1) * 6;
+          const rotBase = parseFloat(o.dataset.baseRot ?? getComputedStyle(o).transform.match(/-?\d+\.?\d*deg/)?.[0] ?? 0);
+          o.style.translate = `${x * depth}px ${y * depth}px`;
+        });
+        ticking = false;
+      });
+    });
+  },
+};
+
 // ─── boot ───
 document.addEventListener("DOMContentLoaded", () => {
   Theme.init();
@@ -865,4 +978,5 @@ document.addEventListener("DOMContentLoaded", () => {
   Museum.init();
   FavoritesPage.init();
   Quiz.init();
+  Landing.init();
 });
